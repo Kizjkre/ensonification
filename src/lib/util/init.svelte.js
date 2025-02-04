@@ -1,4 +1,5 @@
 import bpm from '$lib/state/bpm.svelte.js';
+import colorrange from '$lib/state/colorrange.svelte.js';
 import { data } from '$lib/state/data.svelte.js';
 import file from '$lib/state/file.svelte.js';
 import load from '$lib/state/load.svelte.js';
@@ -18,6 +19,7 @@ export default () => onMount(() => {
   Object.assign(bpm, get('bpm'));
   Object.assign(matrix, get('matrix'));
   Object.assign(mode, get('mode'));
+  Object.assign(colorrange, get('colorrange'));
 
   load.value = true;
 });

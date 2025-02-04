@@ -16,7 +16,7 @@
   });
 
   $effect(() => {
-    if (!load.value) return;
+    if (!load.value || !text) return;
 
     text.style.left = `${ xtext }px`;
     text.style.position = 'absolute';
@@ -50,7 +50,7 @@
 <svelte:window onresize={handleResize} />
 
 {#if covered}
-  <section bind:this={splash} class="absolute bg-gray-800 duration-[2s] flex gap-8 h-full items-center justify-center transition-all w-full z-10">
+  <section bind:this={splash} class="absolute bg-gray-800 duration-[2s] flex gap-8 h-full items-center justify-center transition-all w-full z-30">
     <div class="h-12">
       <h1 bind:this={text} class="duration-1000 font-display font-normal m-0 text-white transition-all">
         ensonification.

@@ -1,8 +1,10 @@
 <script>
+  import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import status from '$lib/state/status.svelte.js';
+  import atoi from '$lib/util/atoi.js';
   import * as d3 from 'd3';
   import { onMount } from 'svelte';
 
@@ -17,8 +19,10 @@
   let measure = $state(0), position = $state(0);
   const x = $derived(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]));
   const y = $derived(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].y]]));
-  const color = $derived(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]));
+  const color = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]) || []));
   const colordomain = $derived(d3.extent(color || []));
+  const colorfunc = $derived((_, i) =>
+    d3.interpolateTurbo((color[i] - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange.max - colorrange.min) + colorrange.min ));
   const xdomain = $derived(data[file.id]?.x !== -1 ? [...new Set(x)] : data[file.id]?.data.map((_, i) => i) || []);
   const xpad = $derived(0.1 / 50 * xdomain.length);
   const xscale = $derived(
@@ -87,7 +91,7 @@
           .attr('y', d => yscale(d))
           .attr('width', xscale.bandwidth())
           .attr('height', yscale.bandwidth())
-          .attr('fill', (_, i) => d3.interpolateTurbo((color[i] - colordomain[0]) / (colordomain[1] - colordomain[0])));
+          .attr('fill', colorfunc);
         break;
       case MODE.LINE:
         d3.select('g#data')
@@ -108,7 +112,7 @@
           .join('path')
           .attr('d', d => line(d))
           .attr('fill', 'none')
-          .attr('stroke', (_, i) => d3.interpolateTurbo((color[i] - colordomain[0]) / (colordomain[1] - colordomain[0])))
+          .attr('stroke', colorfunc)
           .attr('stroke-width', 15)
           .attr('stroke-linecap', 'round');
         break;
@@ -174,8 +178,8 @@
   let t = -1;
   const start = () => {
     t === -1 && (t = audio.ctx.currentTime);
-    audio.ctx.currentTime - t > 60 / bpm.value - TRANSITION_DURATION / 1000 && (t += 60 / bpm.value) && measure++;
-    position = (audio.ctx.currentTime - t) * bpm.value / 60;
+    audio.ctx.currentTime - t > 60 / colorrange.value - TRANSITION_DURATION / 1000 && (t += 60 / colorrange.value) && measure++;
+    position = (audio.ctx.currentTime - t) * colorrange.value / 60;
     status.playing && requestAnimationFrame(start);
     !status.playing && (t = -1) && (measure = (position = 0));
   };
