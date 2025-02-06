@@ -12,8 +12,13 @@
   let rect = $state({ left: 0, right: 0 });
 
   $effect(() => {
-    left.style.transform = `translateX(${ colorrange.min * (rect.right - rect.left) }px)`;
-    right.style.transform = `translateX(${ colorrange.max * (rect.right - rect.left) }px)`;
+    left.style.transform = `translateX(${ colorrange.min * (rect.right - rect.left) - left.getBoundingClientRect().width / 2 }px)`;
+    right.style.transform = `translateX(${ colorrange.max * (rect.right - rect.left) - right.getBoundingClientRect().width / 2 }px)`
+
+    setTimeout(() => {
+      left.classList.remove('transition-all');
+      right.classList.remove('transition-all');
+    }, 150);
   });
 
   const handleBlur = e => e.target.blur();
@@ -53,6 +58,19 @@
 
   const handleResize = () => rect = range.getBoundingClientRect();
 
+  const handleSpectrum = e => {
+    const percentage = (e.clientX - rect.left) / (rect.right - rect.left);
+
+    left.classList.add('transition-all');
+    right.classList.add('transition-all');
+
+    if (Math.abs(percentage - colorrange.min) > Math.abs(percentage - colorrange.max)) {
+      colorrange.max = percentage;
+    } else {
+      colorrange.min = percentage;
+    }
+  };
+
   onMount(handleResize);
 </script>
 
@@ -79,7 +97,9 @@
         class="absolute active:outline active:outline-black bg-gray-200 h-[120%] hover:outline hover:outline-black left-0 rounded top-[-10%] w-2 z-10"
         class:!z-20={target === right || lastTarget === right}
       ></button>
-      <img alt="Turbo spectrum" class="h-full m-0" draggable="false" src="./assets/spectrum.png">
+      <button class="h-full" onclick={handleSpectrum}>
+        <img alt="Turbo spectrum" class="h-full m-0 rounded-full" draggable="false" src="./assets/spectrum.png">
+      </button>
     </div>
   </div>
   {#if file.id in data}
