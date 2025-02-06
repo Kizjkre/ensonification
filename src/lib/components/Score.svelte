@@ -1,4 +1,5 @@
 <script>
+  import bpm from '$lib/state/bpm.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
   import file from '$lib/state/file.svelte.js';
@@ -14,29 +15,56 @@
   const TRANSITION_DURATION = 50;
 
   const ypad = 0.01;
+
   let div, svg;
   let height = $state(400), width = $state(600);
   let measure = $state(0), position = $state(0);
-  const x = $derived(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]));
-  const y = $derived(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].y]]));
-  const color = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]) || []));
+
+  const xraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]) || []));
+  const yraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].y]]) || []));
+  const colorraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]) || []));
+
+  const nulls = $derived(
+    new Set(
+      Array(xraw?.length)
+        .fill()
+        .map((_, i) => i)
+        .filter((_, i) => xraw[i] === null || yraw[i] === null || colorraw[i] === null)
+    )
+  );
+
+  const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
+  const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
+  const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
+
   const colordomain = $derived(d3.extent(color || []));
   const colorfunc = $derived((_, i) =>
-    d3.interpolateTurbo((color[i] - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange.max - colorrange.min) + colorrange.min ));
-  const xdomain = $derived(data[file.id]?.x !== -1 ? [...new Set(x)] : data[file.id]?.data.map((_, i) => i) || []);
-  const xpad = $derived(0.1 / 50 * xdomain.length);
-  const xscale = $derived(
-    d3.scaleBand()
-      .domain([-Infinity, Math.MIN_SAFE_INTEGER, ...xdomain]) // TODO: maybe jank? if using BigInt or strings...
+    d3.interpolateTurbo((color[i] - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange.max - colorrange.min) + colorrange.min));
+
+  const xdomain = $derived(data[file.id]?.x !== -1 ? [...new Set(x)] : data[file.id]?.data.map((_, i) => i).filter((_, i) => !nulls.has(i)) || []);
+  const xpad = $derived(0.1 / (50 * xdomain.length));
+  const xscale = $derived.by(() => {
+    xdomain.sort((a, b) => a - b);
+
+    return d3.scaleBand()
+      .domain([xdomain[0] - 2, xdomain[0] - 1, ...xdomain])
       .range([0, width])
       .padding(xpad)
-  );
-  const yscale = $derived(
-    d3.scaleBand()
-      .domain([...new Set(y)].sort())
-      .range([height, 0])
-      .padding(ypad)
-  );
+  });
+
+  const yscale = $derived.by(() => {
+    switch (mode.value) {
+      case MODE.BLOCK:
+        return d3.scaleBand()
+          .domain([...new Set(y)].sort((a, b) => a - b))
+          .range([height, 0])
+          .padding(ypad);
+      case MODE.LINE:
+        return d3.scaleLinear()
+          .domain(d3.extent(y))
+          .range([height, 0]);
+    }
+  });
   const bandwidth = $derived(xscale.bandwidth() / (1 - xpad));
   const padding = $derived(xpad * bandwidth);
 
@@ -104,7 +132,7 @@
             const scaled = xscale(data[file.id]?.x === -1 ? i : x[i] || x[i - 1]);
             return isNaN(scaled) ? xscale(i - 1) : scaled;
           })
-          .y(([d]) => yscale(d) + yscale.bandwidth() / 2);
+          .y(([d]) => yscale(d));
 
         d3.select('g#data')
           .selectAll('path')
@@ -178,8 +206,8 @@
   let t = -1;
   const start = () => {
     t === -1 && (t = audio.ctx.currentTime);
-    audio.ctx.currentTime - t > 60 / colorrange.value - TRANSITION_DURATION / 1000 && (t += 60 / colorrange.value) && measure++;
-    position = (audio.ctx.currentTime - t) * colorrange.value / 60;
+    audio.ctx.currentTime - t > 60 / bpm.value - TRANSITION_DURATION / 1000 && (t += 60 / bpm.value) && measure++;
+    position = (audio.ctx.currentTime - t) * bpm.value / 60;
     status.playing && requestAnimationFrame(start);
     !status.playing && (t = -1) && (measure = (position = 0));
   };
