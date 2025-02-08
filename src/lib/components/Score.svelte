@@ -24,25 +24,25 @@
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  const xraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]) || []));
+  const xraw = $derived(data[file.id]?.x !== -1 ? atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]) || []) : data[file.id]?.data.map((_, i) => i));
   const yraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].y]]) || []));
   const colorraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]) || []));
 
   const nulls = $derived(
     new Set(
-      Array(xraw?.length)
+      Array(Math.min(xraw?.length, yraw?.length, colorraw?.length))
         .fill()
         .map((_, i) => i)
-        .filter((_, i) => xraw[i] === null || yraw[i] === null || colorraw[i] === null)
+        .filter((_, i) => isNaN(xraw[i]) || isNaN(yraw[i]) || isNaN(colorraw[i]))
     )
   );
 
-  const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
+  const x = $derived(xraw.length > 0 ? xraw.filter((_, i) => !nulls.has(i)) : Array(Math.min(yraw.length, colorraw.length) - nulls.size).fill().map((_, i) => i));
   const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
   const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
   const zip = $derived(x.map((d, i) => ({ x: d, y: y[i], color: color[i] })));
 
-  const xdomain = $derived(data[file.id]?.x !== -1 ? [...new Set(x)] : data[file.id]?.data.map((_, i) => i).filter((_, i) => !nulls.has(i)) || []);
+  const xdomain = $derived([...new Set(x)]);
   const xpad = $derived(0.1 / 50 * (xdomain.length + 2));
   const xscale = $derived.by(() => {
     xdomain.sort((a, b) => a - b);
@@ -69,7 +69,7 @@
       case MODE.LINE:
         return d3.scaleLinear()
           .domain(d3.extent(y))
-          .range([height, 0]);
+          .range([height - 10 - ypad * 2, ypad * 2]);
     }
   });
 
@@ -85,12 +85,20 @@
 
   onMount(async () => {
     PIXI = await import('pixi.js');
+    console.log(PIXI.Texture.WHITE);
+
+    PIXI.AbstractRenderer.defaultOptions.resolution = devicePixelRatio;
 
     app = new PIXI.Application();
     await app.init({ background: 'white', resizeTo: div });
+    app.canvas.classList.add('h-full', 'w-full');
     div.appendChild(app.canvas);
 
-    score = new PIXI.Container();
+    score = new PIXI.ParticleContainer({
+      dynamicProperties: {
+        tint: true
+      }
+    });
     app.stage.addChild(score);
 
     seeker = PIXI.Sprite.from(PIXI.Texture.WHITE);
@@ -113,24 +121,24 @@
   $effect(async () => {
     if (!app || !score || !zip) return;
 
-    score.removeChildren();
+    score.removeParticles(0, Infinity);
 
     switch (mode.value) {
       case MODE.BLOCK:
         zip.forEach(({ x, y, color }) => {
-          const rect = PIXI.Sprite.from(PIXI.Texture.WHITE);
-          rect.width = xscale.bandwidth();
-          rect.height = yscale.bandwidth();
-          rect.tint = colorfunc(color);
-          rect.x = xscale(x);
-          rect.y = yscale(y);
-          score.addChild(rect);
+          const rect = new PIXI.Particle({
+            texture: PIXI.Texture.WHITE,
+            x: xscale(x),
+            y: yscale(y),
+            tint: colorfunc(color),
+            scaleX: xscale.bandwidth(),
+            scaleY: yscale.bandwidth()
+          });
+          score.addParticle(rect);
         });
         break;
       case MODE.LINE:
         zip.forEach(({ x, y, color }, i) => {
-          const line = new PIXI.Graphics();
-
           if (i === zip.length - 1) {
             // TODO
             return;
@@ -140,41 +148,20 @@
           const yscaley = yscale(y);
           const xscalexn = xscale(zip[i + 1].x);
           const yscaleyn = yscale(zip[i + 1].y);
-          // const length = Math.sqrt((xscalexn - xscalex) ** 2 + (yscaleyn - yscaley) ** 2);
 
-          // const colorStops = [0xff0000, 0x00ff00, 0x0000ff];
-          //
-          // // Create a fill gradient
-          // const gradientFill = new PIXI.FillGradient(0, 0, xscalexn - xscalex, yscaleyn - yscaley);
-          //
-          // // Add the color stops to the fill gradient
-          // colorStops.forEach((number, index) =>
-          // {
-          //   const ratio = index / colorStops.length;
-          //
-          //   gradientFill.addColorStop(ratio, number);
-          // });
-          //
-          // const gradient = new PIXI.FillGradient(xscalex, yscaley, xscalexn, yscaleyn);
-          // gradient.addColorStop(0.2, colorfunc(color));
-          // gradient.addColorStop(0.8, colorfunc(zip[i + 1].color));
+          // TODO: fix discontinuities if possible
+          const line = new PIXI.Particle({
+            texture: PIXI.Texture.WHITE,
+            x: xscalex,
+            y: yscaley,
+            tint: colorfunc(color),
+            scaleX: Math.sqrt((xscalexn - xscalex) ** 2 + (yscaleyn - yscaley) ** 2),
+            scaleY: 10,
+            rotation: Math.atan2(yscaleyn - yscaley, xscalexn - xscalex)
+          });
 
-          line.moveTo(xscale(x), yscale(y));
-          line.lineTo(xscale(zip[i + 1].x), yscale(zip[i + 1].y));
-          line.stroke({ width: 15, color: colorfunc(color) });
-          // line.stroke({ width: 15, color: colorfunc(color), fill: gradient });
-
-          // line
-          //   .roundRect(0, 0, length, 15, 15)
-          //   .fill(gradientFill)
-          // // line.pivot.set(length / 2, 7.5);
-          // line.position.x = xscalex;
-          // line.position.y = yscaley;
-          // line.rotation = Math.atan2(yscaleyn - yscaley, xscalexn - xscalex);
-
-          score.addChild(line);
+          score.addParticle(line);
         });
-
         break;
     }
   });
