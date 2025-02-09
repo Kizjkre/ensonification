@@ -85,7 +85,6 @@
 
   onMount(async () => {
     PIXI = await import('pixi.js');
-    console.log(PIXI.Texture.WHITE);
 
     PIXI.AbstractRenderer.defaultOptions.resolution = devicePixelRatio;
 
