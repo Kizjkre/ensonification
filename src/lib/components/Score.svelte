@@ -2,14 +2,12 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import status from '$lib/state/status.svelte.js';
-  import corner from '$lib/util/corner.js';
   import { onMount } from 'svelte';
   import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import atoi from '$lib/util/atoi.js';
   import * as d3 from 'd3';
-  import Two from 'two.js';
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -20,9 +18,6 @@
 
   let measure = $state(0);
   let position = $state(0);
-
-  let seeker = $state(null);
-  let continuous = $state(null);
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -35,7 +30,7 @@
       Array(Math.min(xraw?.length, yraw?.length, colorraw?.length))
         .fill()
         .map((_, i) => i)
-        .filter((_, i) => isNaN(xraw[i]) || isNaN(yraw[i]) || isNaN(colorraw[i]))
+        .filter((_, i) => isNaN(xraw[i]) || isNaN(yraw[i]) || isNaN(colorraw[i]) || xraw[i] === null || yraw[i] === null || colorraw[i] === null)
     )
   );
 
@@ -81,91 +76,6 @@
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  let two = $state(null);
-  let score = $state(null);
-
-  onMount(async () => {
-    handleResize();
-
-    two = new Two({
-      fitted: true,
-      type: Two.Types.webgl
-    }).appendTo(div);
-
-    score = two.makeGroup();
-
-    seeker = corner(two.makeRectangle(0, 0, padding, height));
-    seeker.fill = '#ff0000';
-    seeker.noStroke();
-
-    continuous = corner(two.makeRectangle(0, 0, padding, height));
-    continuous.fill = '#ff0000';
-    continuous.opacity = 0.5;
-    continuous.noStroke();
-
-    two.update();
-  });
-
-  $effect(async () => {
-    // if (!app || !score || !zip) return;
-    if (!score) return;
-
-    // score.removeParticles(0, Infinity);
-    score.children.length = 0;
-
-    switch (mode.value) {
-      case MODE.BLOCK:
-        zip.forEach(({ x, y, color }) => {
-          // const rect = new PIXI.Particle({
-          //   texture: PIXI.Texture.WHITE,
-          //   x: xscale(x),
-          //   y: yscale(y),
-          //   tint: colorfunc(color),
-          //   scaleX: xscale.bandwidth(),
-          //   scaleY: yscale.bandwidth()
-          // });
-          // score.addParticle(rect);
-
-          const block = corner(two.makeRectangle(xscale(x), yscale(y), xscale.bandwidth(), yscale.bandwidth()));
-          block.fill = colorfunc(color);
-          block.noStroke();
-
-          score.add(block);
-        });
-
-        two.update();
-        break;
-      case MODE.LINE:
-        // zip.forEach(({ x, y, color }, i) => {
-        //   if (i === zip.length - 1) {
-        //     // TODO
-        //     return;
-        //   }
-        //
-        //   const xscalex = xscale(x);
-        //   const yscaley = yscale(y);
-        //   const xscalexn = xscale(zip[i + 1].x);
-        //   const yscaleyn = yscale(zip[i + 1].y);
-        //
-        //   // TODO: fix discontinuities if possible
-        //   const line = new PIXI.Particle({
-        //     texture: PIXI.Texture.WHITE,
-        //     x: xscalex,
-        //     y: yscaley,
-        //     tint: colorfunc(color),
-        //     scaleX: Math.sqrt((xscalexn - xscalex) ** 2 + (yscaleyn - yscaley) ** 2),
-        //     scaleY: 10,
-        //     rotation: Math.atan2(yscaleyn - yscaley, xscalexn - xscalex)
-        //   });
-        //
-        //   score.addParticle(line);
-        // });
-        break;
-    }
-  });
-
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
   onMount(() => new ResizeObserver(handleResize).observe(div));
 
   const handleKeyDown = e => {
@@ -197,24 +107,9 @@
 
     height = rect.height;
     width = rect.width;
-
-    if (!two) return;
-    two.height = height;
-    two.width = width;
-
-    two.update();
   };
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  $effect(() => {
-    if (!seeker || !continuous) return;
-
-    seeker.position.x = measure * bandwidth;
-    continuous.position.x = (position + measure) * bandwidth;
-
-    two.update();
-  });
 
   let audio;
   onMount(async () => audio = await import('../util/audio.js'));
@@ -240,4 +135,24 @@
 
 <svelte:window onkeydown={handleKeyDown} onresize={handleResize} />
 
-<div bind:this={div} class="h-full"></div>
+<div bind:this={div} class="h-full">
+  <svg {height} {width}>
+    <g>
+      {#if mode.value === MODE.BLOCK}
+        {#each zip as { x, y, color }, i (i)}
+        	<rect fill={colorfunc(color)} height={yscale.bandwidth()} width={xscale.bandwidth()} x={xscale(x)} y={yscale(y)}></rect>
+        {/each}
+      {:else if mode.value === MODE.LINE}
+        {#each zip as { x, y, color }, i (i)}
+        	{#if i === zip.length - 1}
+        		<line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(x)} y1={yscale(y)} y2={yscale(y)}></line>
+        	{:else}
+        		<line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(zip[i + 1].x)} y1={yscale(y)} y2={yscale(zip[i + 1].y)}></line>
+        	{/if}
+        {/each}
+      {/if}
+    </g>
+    <rect fill="#ff0000" {height} width={padding} x={measure * bandwidth} y="0"></rect>
+    <rect fill="#ff000080" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
+  </svg>
+</div>

@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.15",
-    "d3": "^7.9.0",
-    "two.js": "^0.8.15"
+    "d3": "^7.9.0"
   }
 }
