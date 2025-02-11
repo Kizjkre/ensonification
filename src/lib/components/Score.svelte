@@ -2,12 +2,14 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import status from '$lib/state/status.svelte.js';
+  import corner from '$lib/util/corner.js';
   import { onMount } from 'svelte';
   import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import atoi from '$lib/util/atoi.js';
   import * as d3 from 'd3';
+  import Two from 'two.js';
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -55,7 +57,7 @@
   const bandwidth = $derived(xscale.bandwidth() === 0 ? width / (xdomain.length + 2) : xscale.bandwidth() / (1 - xpad));
   const padding = $derived.by(() => {
     const padding = xpad * bandwidth;
-    return padding < 2 ? 2 : padding;
+    return padding < 1 ? 1 : padding;
   });
 
   const ypad = 0.01;
@@ -79,103 +81,92 @@
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  let PIXI = $state(null);
-  let app = $state(null);
+  let two = $state(null);
   let score = $state(null);
 
   onMount(async () => {
-    PIXI = await import('pixi.js');
+    handleResize();
 
-    PIXI.AbstractRenderer.defaultOptions.resolution = devicePixelRatio;
+    two = new Two({
+      fitted: true,
+      type: Two.Types.webgl
+    }).appendTo(div);
 
-    app = new PIXI.Application();
-    await app.init({ background: 'white', resizeTo: div });
-    app.canvas.classList.add('h-full', 'w-full');
-    div.appendChild(app.canvas);
+    score = two.makeGroup();
 
-    score = new PIXI.ParticleContainer({
-      dynamicProperties: {
-        tint: true
-      }
-    });
-    app.stage.addChild(score);
+    seeker = corner(two.makeRectangle(0, 0, padding, height));
+    seeker.fill = '#ff0000';
+    seeker.noStroke();
 
-    seeker = PIXI.Sprite.from(PIXI.Texture.WHITE);
-    seeker.width = padding;
-    seeker.height = height;
-    seeker.tint = 'red';
-    seeker.x = 0;
-    seeker.y = 0;
+    continuous = corner(two.makeRectangle(0, 0, padding, height));
+    continuous.fill = '#ff0000';
+    continuous.opacity = 0.5;
+    continuous.noStroke();
 
-    continuous = PIXI.Sprite.from(PIXI.Texture.WHITE);
-    continuous.width = padding;
-    continuous.height = height;
-    continuous.tint = 'white';
-
-    app.stage.addChild(continuous, seeker);
-
-    return () => app.removeContext();
+    two.update();
   });
 
   $effect(async () => {
-    if (!app || !score || !zip) return;
+    // if (!app || !score || !zip) return;
+    if (!score) return;
 
-    score.removeParticles(0, Infinity);
+    // score.removeParticles(0, Infinity);
+    score.children.length = 0;
 
     switch (mode.value) {
       case MODE.BLOCK:
         zip.forEach(({ x, y, color }) => {
-          const rect = new PIXI.Particle({
-            texture: PIXI.Texture.WHITE,
-            x: xscale(x),
-            y: yscale(y),
-            tint: colorfunc(color),
-            scaleX: xscale.bandwidth(),
-            scaleY: yscale.bandwidth()
-          });
-          score.addParticle(rect);
+          // const rect = new PIXI.Particle({
+          //   texture: PIXI.Texture.WHITE,
+          //   x: xscale(x),
+          //   y: yscale(y),
+          //   tint: colorfunc(color),
+          //   scaleX: xscale.bandwidth(),
+          //   scaleY: yscale.bandwidth()
+          // });
+          // score.addParticle(rect);
+
+          const block = corner(two.makeRectangle(xscale(x), yscale(y), xscale.bandwidth(), yscale.bandwidth()));
+          block.fill = colorfunc(color);
+          block.noStroke();
+
+          score.add(block);
         });
+
+        two.update();
         break;
       case MODE.LINE:
-        zip.forEach(({ x, y, color }, i) => {
-          if (i === zip.length - 1) {
-            // TODO
-            return;
-          }
-
-          const xscalex = xscale(x);
-          const yscaley = yscale(y);
-          const xscalexn = xscale(zip[i + 1].x);
-          const yscaleyn = yscale(zip[i + 1].y);
-
-          // TODO: fix discontinuities if possible
-          const line = new PIXI.Particle({
-            texture: PIXI.Texture.WHITE,
-            x: xscalex,
-            y: yscaley,
-            tint: colorfunc(color),
-            scaleX: Math.sqrt((xscalexn - xscalex) ** 2 + (yscaleyn - yscaley) ** 2),
-            scaleY: 10,
-            rotation: Math.atan2(yscaleyn - yscaley, xscalexn - xscalex)
-          });
-
-          score.addParticle(line);
-        });
+        // zip.forEach(({ x, y, color }, i) => {
+        //   if (i === zip.length - 1) {
+        //     // TODO
+        //     return;
+        //   }
+        //
+        //   const xscalex = xscale(x);
+        //   const yscaley = yscale(y);
+        //   const xscalexn = xscale(zip[i + 1].x);
+        //   const yscaleyn = yscale(zip[i + 1].y);
+        //
+        //   // TODO: fix discontinuities if possible
+        //   const line = new PIXI.Particle({
+        //     texture: PIXI.Texture.WHITE,
+        //     x: xscalex,
+        //     y: yscaley,
+        //     tint: colorfunc(color),
+        //     scaleX: Math.sqrt((xscalexn - xscalex) ** 2 + (yscaleyn - yscaley) ** 2),
+        //     scaleY: 10,
+        //     rotation: Math.atan2(yscaleyn - yscaley, xscalexn - xscalex)
+        //   });
+        //
+        //   score.addParticle(line);
+        // });
         break;
     }
   });
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  onMount(async () => {
-    handleResize();
-    const observer = new ResizeObserver(handleResize);
-    observer.observe(div);
-
-    const { height: h, width: w } = div.getBoundingClientRect();
-    width = w;
-    height = h;
-  });
+  onMount(() => new ResizeObserver(handleResize).observe(div));
 
   const handleKeyDown = e => {
     if (!file.id) return;
@@ -206,6 +197,12 @@
 
     height = rect.height;
     width = rect.width;
+
+    if (!two) return;
+    two.height = height;
+    two.width = width;
+
+    two.update();
   };
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -213,13 +210,10 @@
   $effect(() => {
     if (!seeker || !continuous) return;
 
-    seeker.x = measure * bandwidth;
-    continuous.x = (position + measure) * bandwidth;
-  });
+    seeker.position.x = measure * bandwidth;
+    continuous.position.x = (position + measure) * bandwidth;
 
-  $effect(() => {
-    if (!continuous) return;
-    continuous.tint = status.playing ? 0xAA0000 : 0xFFFFFF;
+    two.update();
   });
 
   let audio;
