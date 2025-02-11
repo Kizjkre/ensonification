@@ -1,13 +1,17 @@
 <script>
   import bpm from '$lib/state/bpm.svelte.js';
-  import file from '$lib/state/file.svelte.js';
-  import status from '$lib/state/status.svelte.js';
-  import { onMount } from 'svelte';
+  import colorstate from '$lib/state/color.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
+  import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
+  import staff from '$lib/state/staff.svelte.js';
+  import status from '$lib/state/status.svelte.js';
+  import xstate from '$lib/state/x.svelte.js';
+  import ystate from '$lib/state/y.svelte.js';
   import atoi from '$lib/util/atoi.js';
   import * as d3 from 'd3';
+  import { onMount } from 'svelte';
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -21,9 +25,9 @@
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  const xraw = $derived(data[file.id]?.x !== -1 ? atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].x]]) || []) : data[file.id]?.data.map((_, i) => i));
-  const yraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].y]]) || []));
-  const colorraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[data[file.id].color]]) || []));
+  const xraw = $derived(xstate[file.id] !== -1 ? atoi(data[file.id]?.data.map(d => d[data[file.id].columns[xstate[file.id]]]) || []) : data[file.id]?.data.map((_, i) => i));
+  const yraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[ystate[file.id]]]) || []));
+  const colorraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[colorstate[file.id]]]) || []));
 
   const nulls = $derived(
     new Set(
@@ -57,7 +61,7 @@
 
   const ypad = 0.01;
   const yscale = $derived.by(() => {
-    switch (mode.value) {
+    switch (mode[file.id]) {
       case MODE.BLOCK:
         return d3.scaleBand()
           .domain([...new Set(y)].sort((a, b) => a - b))
@@ -72,7 +76,7 @@
 
   const colordomain = $derived(d3.extent(color || []));
   const colorfunc = $derived(c =>
-    d3.interpolateTurbo((c - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange.max - colorrange.min) + colorrange.min));
+    d3.interpolateTurbo((c - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange[file.id].max - colorrange[file.id].min) + colorrange[file.id].min));
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -138,11 +142,18 @@
 <div bind:this={div} class="h-full">
   <svg {height} {width}>
     <g>
-      {#if mode.value === MODE.BLOCK}
+      {#each Array(staff[file.id]).fill() as _, i (i)}
+        {#if i > 0}
+          <line stroke="#eeeeee" stroke-width="5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
+        {/if}
+      {/each}
+    </g>
+    <g>
+      {#if mode[file.id] === MODE.BLOCK}
         {#each zip as { x, y, color }, i (i)}
         	<rect fill={colorfunc(color)} height={yscale.bandwidth()} width={xscale.bandwidth()} x={xscale(x)} y={yscale(y)}></rect>
         {/each}
-      {:else if mode.value === MODE.LINE}
+      {:else if mode[file.id] === MODE.LINE}
         {#each zip as { x, y, color }, i (i)}
         	{#if i === zip.length - 1}
         		<line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(x)} y1={yscale(y)} y2={yscale(y)}></line>
@@ -152,7 +163,7 @@
         {/each}
       {/if}
     </g>
-    <rect fill="#ff0000" {height} width={padding} x={measure * bandwidth} y="0"></rect>
-    <rect fill="#ff000080" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
+    <rect fill="rgb(248, 113, 113)" {height} width={padding} x={measure * bandwidth} y="0"></rect>
+    <rect fill="rgba(248, 113, 113, 0.5)" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
   </svg>
 </div>

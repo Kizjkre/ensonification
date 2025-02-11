@@ -46,7 +46,7 @@
 
 <section class="grid grid-rows-6 h-full pb-4 text-sm">
   <div>
-    <h3 class="font-normal m-0">menu.</h3>
+    <h3 class="dark:text-gray-100 font-normal m-0">menu.</h3>
   </div>
   <div>
     <Button onclick={handleStart}>{status.playing ? 'stop' : 'start'}</Button>

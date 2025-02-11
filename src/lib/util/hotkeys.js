@@ -1,4 +1,5 @@
 import menu from '$lib/state/menu.svelte.js';
+import modifiers from '$lib/state/modifier.svelte.js';
 import samples from '$lib/state/samples.svelte.js';
 
 let audio, read;
@@ -13,7 +14,7 @@ export default async e => {
     return;
   }
 
-  if (samples[e.key]) {
+  if (samples[e.key] && !modifiers.control) {
     const buffer = await (await read(samples[e.key])).arrayBuffer();
     audio.buffers[e.key] = await audio.ctx.decodeAudioData(buffer);
 

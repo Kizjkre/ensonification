@@ -2,6 +2,10 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
   import { data } from '$lib/state/data.svelte.js';
+  import staff from '$lib/state/staff.svelte.js';
+  import x from '$lib/state/x.svelte.js';
+  import y from '$lib/state/y.svelte.js';
+  import color from '$lib/state/color.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import { onMount } from 'svelte';
@@ -12,8 +16,10 @@
   let rect = $state({ left: 0, right: 0 });
 
   $effect(() => {
-    left.style.transform = `translateX(${ colorrange.min * (rect.right - rect.left) - left.getBoundingClientRect().width / 2 }px)`;
-    right.style.transform = `translateX(${ colorrange.max * (rect.right - rect.left) - right.getBoundingClientRect().width / 2 }px)`
+    if (!file.id || !(colorrange[file.id])) return;
+
+    left.style.transform = `translateX(${ colorrange[file.id].min * (rect.right - rect.left) - left.getBoundingClientRect().width / 2 }px)`;
+    right.style.transform = `translateX(${ colorrange[file.id].max * (rect.right - rect.left) - right.getBoundingClientRect().width / 2 }px)`
 
     setTimeout(() => {
       left.classList.remove('transition-all');
@@ -36,18 +42,18 @@
     let newPos = x / (rect.right - rect.left);
 
     if (target === left) {
-      if (newPos > colorrange.max) {
-        colorrange.min = colorrange.max;
+      if (newPos > colorrange[file.id].max) {
+        colorrange[file.id].min = colorrange[file.id].max;
         return;
       }
-      colorrange.min = newPos;
+      colorrange[file.id].min = newPos;
     }
     if (target === right) {
-      if (newPos < colorrange.min) {
-        colorrange.max = colorrange.min;
+      if (newPos < colorrange[file.id].min) {
+        colorrange[file.id].max = colorrange[file.id].min;
         return;
       }
-      colorrange.max = newPos;
+      colorrange[file.id].max = newPos;
     }
   };
 
@@ -64,10 +70,10 @@
     left.classList.add('transition-all');
     right.classList.add('transition-all');
 
-    if (Math.abs(percentage - colorrange.min) > Math.abs(percentage - colorrange.max)) {
-      colorrange.max = percentage;
+    if (Math.abs(percentage - colorrange[file.id].min) > Math.abs(percentage - colorrange[file.id].max)) {
+      colorrange[file.id].max = percentage;
     } else {
-      colorrange.min = percentage;
+      colorrange[file.id].min = percentage;
     }
   };
 
@@ -81,9 +87,9 @@
   onresize={handleResize}
 ></svelte:document>
 
-<section class="gap-x-2 grid grid-cols-5 grid-rows-3">
-  <div class="col-span-5 flex gap-4 justify-between">
-    <h3 class="font-normal m-0">score settings.</h3>
+<section class="gap-x-2 grid grid-cols-6 grid-rows-3">
+  <div class="col-span-6 flex gap-4 justify-between">
+    <h3 class="dark:text-gray-100 font-normal m-0">score settings.</h3>
     <div bind:this={range} class="relative w-1/2">
       <button
         aria-label="left slider"
@@ -105,61 +111,79 @@
   {#if file.id in data}
   	<div class="flex flex-col row-span-2">
       <label class="px-2" for="x">x-axis</label>
-      <select bind:value={data[file.id].x} class="border-2 border-gray-100 px-2 rounded" onchange={handleBlur} id="x">
+      <select bind:value={x[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="x">
         {#each data[file.id].columns as column, i (i)}
-          <option value={i}>{column}</option>
+          <option selected={file.id in y || i !== 0 ? '' : 'selected'}  value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>
       </select>
     </div>
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="y">y-axis</label>
-      <select bind:value={data[file.id].y} class="border-2 border-gray-100 px-2 rounded" onchange={handleBlur} id="y">
+      <select bind:value={y[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="y">
         {#each data[file.id].columns as column, i (i)}
-          <option value={i}>{column}</option>
+          <option selected={file.id in y || i !== 1 ? '' : 'selected'} value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>
       </select>
     </div>
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="color">color</label>
-      <select bind:value={data[file.id].color} class="border-2 border-gray-100 px-2 rounded" onchange={handleBlur} id="color">
+      <select bind:value={color[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="color">
         {#each data[file.id].columns as column, i (i)}
-          <option value={i}>{column}</option>
+          <option selected={file.id in y || i !== 2 ? '' : 'selected'} value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>
       </select>
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="bpm">bpm</label>
+      <input bind:value={bpm[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" id="bpm" max="240" min="20" type="number">
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="mode">mode</label>
+      <select bind:value={mode[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="mode">
+        {#each Object.values(MODE) as m}
+          <option value={m}>{m}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="staff">staff</label>
+      <input bind:value={staff[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" id="staff" max="20" min="1" type="number">
     </div>
   {:else}
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="x">x-axis</label>
-      <select class="border-2 border-gray-100 px-2 rounded" disabled id="x">
+      <select class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="x">
         <option value="0">select a dataset</option>
       </select>
     </div>
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="y">y-axis</label>
-      <select class="border-2 border-gray-100 px-2 rounded" disabled id="y">
+      <select class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="y">
         <option value="0">select a dataset</option>
       </select>
     </div>
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="color">color</label>
-      <select class="border-2 border-gray-100 px-2 rounded" disabled id="color">
+      <select class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="color">
         <option value="0">select a dataset</option>
       </select>
     </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="bpm">bpm</label>
+      <input class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="bpm" max="240" min="20" placeholder="select a dataset" type="number">
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="mode">mode</label>
+      <select class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="mode">
+        <option value="0">select a dataset</option>
+      </select>
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="staff">staff</label>
+      <input class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="staff" max="20" min="1" placeholder="select a dataset" type="number">
+    </div>
   {/if}
-  <div class="flex flex-col row-span-2">
-    <label class="px-2" for="bpm">bpm</label>
-    <input bind:value={bpm.value} class="border-2 border-gray-100 px-2 rounded" id="bpm" max="240" min="20" type="number">
-  </div>
-  <div class="flex flex-col row-span-2">
-    <label class="px-2" for="mode">mode</label>
-    <select bind:value={mode.value} class="border-2 border-gray-100 px-2 rounded" onchange={handleBlur} id="mode">
-      {#each Object.values(MODE) as m}
-        <option value={m}>{m}</option>
-      {/each}
-    </select>
-  </div>
 </section>

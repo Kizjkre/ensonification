@@ -20,7 +20,7 @@
   </section>
   <section class="col-span-3 flex items-end justify-end">
     <section class="flex flex-col items-end justify-end pb-4">
-      <h1 class="font-display font-normal m-0" id="title">ensonification.</h1>
+      <h1 class="dark:text-gray-100 font-display font-normal m-0" id="title">ensonification.</h1>
       <!--suppress JSUnresolvedReference -->
       <h6 class="text-xs">version {meta.version}, built {meta.date}.</h6>
     </section>

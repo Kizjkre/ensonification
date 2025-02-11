@@ -12,7 +12,7 @@
 <svelte:window onkeydown={hotkeys}></svelte:window>
 
 <Load />
-<div class="grid h-full transition-all duration-700" class:grid-rows-main={menu.open} class:grid-rows-mainFullscreen={!menu.open}>
+<div class="dark:bg-gray-800 dark:text-gray-100 grid h-full transition-all duration-700" class:cursor-none={!menu.open} class:grid-rows-main={menu.open} class:grid-rows-mainFullscreen={!menu.open}>
   <main>
     <Score />
   </main>

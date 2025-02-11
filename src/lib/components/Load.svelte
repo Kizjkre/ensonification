@@ -28,7 +28,8 @@
     if (!load.value) return;
 
     setTimeout(() => {
-      text.style.opacity = 0;
+      const { matches } = matchMedia('(prefers-color-scheme: dark)');
+      if (!matches) text.style.opacity = 0;
       splash.style.opacity = 0;
     }, 1000);
     setTimeout(() => covered = false, 3000);

@@ -1,3 +1,4 @@
+import defaults from '$lib/util/defaults.svelte.js';
 import save from '$lib/util/save.svelte.js';
 
 export const MODE = Object.freeze({
@@ -5,8 +6,9 @@ export const MODE = Object.freeze({
   LINE: 'Line'
 });
 
-const mode = $state({ value: MODE.BLOCK });
+const mode = $state({});
 
+defaults(mode, MODE.BLOCK);
 save('mode', mode);
 
 export default mode;
