@@ -5,8 +5,10 @@
   import hotkeys from '$lib/util/hotkeys.js';
   import menu from '$lib/state/menu.svelte.js';
   import init from '$lib/util/init.svelte.js';
+  import { init as dinit } from '$lib/state/data.svelte.js';
 
   init();
+  dinit();
 </script>
 
 <svelte:window onkeydown={hotkeys}></svelte:window>

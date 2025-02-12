@@ -16,7 +16,7 @@
   onMount(() => {
     const dark = matchMedia('(prefers-color-scheme: dark)');
 
-    if (!dark) stroke = 'white';
+    if (dark) stroke = 'white';
 
     dark.addEventListener('change', ({ matches }) => stroke = matches ? 'white' : 'black');
   });

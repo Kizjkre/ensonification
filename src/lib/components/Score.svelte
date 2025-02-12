@@ -2,7 +2,6 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import colorstate from '$lib/state/color.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
-  import { data } from '$lib/state/data.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import staff from '$lib/state/staff.svelte.js';
@@ -25,9 +24,19 @@
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  const xraw = $derived(xstate[file.id] !== -1 ? atoi(data[file.id]?.data.map(d => d[data[file.id].columns[xstate[file.id]]]) || []) : data[file.id]?.data.map((_, i) => i));
-  const yraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[ystate[file.id]]]) || []));
-  const colorraw = $derived(atoi(data[file.id]?.data.map(d => d[data[file.id].columns[colorstate[file.id]]]) || []));
+  let read = $state(null);
+  let raw = $state({ data: [], columns: [] });
+  onMount(async () => read = (await import('$lib/util/data.js')).read);
+
+  $effect(async () => {
+    if (!read || !file.id) return;
+
+    raw = await read(file.id);
+  });
+
+  const xraw = $derived(xstate[file.id] !== -1 ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []) : raw.data.map((_, i) => i));
+  const yraw = $derived(atoi(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []));
+  const colorraw = $derived(atoi(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []));
 
   const nulls = $derived(
     new Set(
@@ -116,15 +125,15 @@
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   let audio;
-  onMount(async () => audio = await import('../util/audio.js'));
+  onMount(async () => audio = await import('$lib/util/audio.js'));
 
   const TRANSITION_DURATION = 0;
 
   let t = -1;
   const start = () => {
     t === -1 && (t = audio.ctx.currentTime);
-    audio.ctx.currentTime - t > 60 / bpm.value - TRANSITION_DURATION / 1000 && (t += 60 / bpm.value) && measure++;
-    position = ((audio.ctx.currentTime - t) * bpm.value / 60) % 1;
+    audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure++;
+    position = ((audio.ctx.currentTime - t) * bpm[file.id] / 60) % 1;
     status.playing && requestAnimationFrame(start);
     !status.playing && (t = -1) && (measure = (position = 0));
   };
@@ -144,7 +153,7 @@
     <g>
       {#each Array(staff[file.id]).fill() as _, i (i)}
         {#if i > 0}
-          <line stroke="#eeeeee" stroke-width="5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
+          <line stroke="#b3b2b580" stroke-width="2.5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
         {/if}
       {/each}
     </g>
