@@ -14,6 +14,16 @@
   let target = $state(null);
   let lastTarget = $state(null);
   let rect = $state({ left: 0, right: 0 });
+  let read = $state(null);
+  let columns = $state(null);
+  onMount(async () => read = (await import('$lib/util/data.js')).read);
+
+  $effect(async () => {
+    if (!read || !file.id) return;
+
+    columns = (await read(file.id)).columns;
+  });
+  $inspect(columns);
 
   $effect(() => {
     if (!file.id || !(colorrange[file.id])) return;
@@ -108,11 +118,11 @@
       </button>
     </div>
   </div>
-  {#if file.id in data}
+  {#if file.id in data && columns}
   	<div class="flex flex-col row-span-2">
       <label class="px-2" for="x">x-axis</label>
       <select bind:value={x[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="x">
-        {#each data[file.id].columns as column, i (i)}
+        {#each columns as column, i (i)}
           <option selected={file.id in y || i !== 0 ? '' : 'selected'}  value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>
@@ -121,7 +131,7 @@
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="y">y-axis</label>
       <select bind:value={y[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="y">
-        {#each data[file.id].columns as column, i (i)}
+        {#each columns as column, i (i)}
           <option selected={file.id in y || i !== 1 ? '' : 'selected'} value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>
@@ -130,7 +140,7 @@
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="color">color</label>
       <select bind:value={color[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="color">
-        {#each data[file.id].columns as column, i (i)}
+        {#each columns as column, i (i)}
           <option selected={file.id in y || i !== 2 ? '' : 'selected'} value={i}>{column}</option>
         {/each}
         <option value={-1}>none</option>

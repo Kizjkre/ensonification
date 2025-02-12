@@ -19,15 +19,18 @@ export const read = async name => {
     res(JSON.parse(await (await file.getFile()).text()));
   };
 
+  let l;
+
   const result = await new Promise(async res => {
     try {
       await listener(res)();
     } catch {
-      document.addEventListener('save', listener(res));
+      l = listener(res);
+      document.addEventListener('save', l);
     }
   });
 
-  document.removeEventListener('save', listener(() => {}));
+  document.removeEventListener('save', l);
 
   return result;
 };

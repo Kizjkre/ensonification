@@ -22,7 +22,7 @@ export const data = $state({});
 
 export const add = (name, d) => {
   const id = Date.now();
-  data[id] = { name, data: d, columns: d.columns };
+  data[id] = name;
   file.id = id;
   fsadd(id, JSON.stringify({ data: d, columns: d.columns }));
   return id;
