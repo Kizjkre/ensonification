@@ -23,7 +23,6 @@
 
     columns = (await read(file.id)).columns;
   });
-  $inspect(columns);
 
   $effect(() => {
     if (!file.id || !(colorrange[file.id])) return;
