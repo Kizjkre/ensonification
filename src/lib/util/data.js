@@ -33,6 +33,6 @@ export const read = async name => {
 };
 
 export const remove = async name => {
-  const file = await dir.getFileHandle(name);
+  const file = await dir.getFileHandle(name + '.json');
   return file.remove();
 };
