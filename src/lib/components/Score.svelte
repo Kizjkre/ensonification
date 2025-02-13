@@ -26,12 +26,16 @@
 
   let read = $state(null);
   let raw = $state({ data: [], columns: [] });
+  let ready = $state(false);
   onMount(async () => read = (await import('$lib/util/data.js')).read);
 
   $effect(async () => {
     if (!read || !file.id) return;
 
+    ready = false;
     raw = await read(file.id);
+    await new Promise(r => setTimeout(r, 10));
+    ready = true;
   });
 
   const xraw = $derived(xstate[file.id] !== -1 ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []) : raw.data.map((_, i) => i));
@@ -152,27 +156,30 @@
   <svg {height} {width}>
     <g>
       {#each Array(staff[file.id]).fill() as _, i (i)}
-        {#if i > 0}
-          <line stroke="#b3b2b580" stroke-width="2.5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
+        {#if i > 0 && ready}
+          <line class="dark:stroke-gray-700 stroke-gray-300" stroke-width="5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
         {/if}
       {/each}
     </g>
     <g>
-      {#if mode[file.id] === MODE.BLOCK}
-        {#each zip as { x, y, color }, i (i)}
-        	<rect fill={colorfunc(color)} height={yscale.bandwidth()} width={xscale.bandwidth()} x={xscale(x)} y={yscale(y)}></rect>
-        {/each}
-      {:else if mode[file.id] === MODE.LINE}
-        {#each zip as { x, y, color }, i (i)}
-        	{#if i === zip.length - 1}
-        		<line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(x)} y1={yscale(y)} y2={yscale(y)}></line>
-        	{:else}
-        		<line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(zip[i + 1].x)} y1={yscale(y)} y2={yscale(zip[i + 1].y)}></line>
-        	{/if}
-        {/each}
+      {#if ready}
+        {#if mode[file.id] === MODE.BLOCK}
+          {#each zip as { x, y, color }, i (i)}
+            <rect fill={colorfunc(color)} height={yscale.bandwidth()} width={xscale.bandwidth()} x={xscale(x)} y={yscale(y)}></rect>
+          {/each}
+        {:else if mode[file.id] === MODE.LINE}
+          {#each zip as { x, y, color }, i (i)}
+            {#if i === zip.length - 1}
+              <line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={width} y1={yscale(y)} y2={yscale(y)}></line>
+            {:else}
+              <line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(zip[i + 1].x)} y1={yscale(y)} y2={yscale(zip[i + 1].y)}></line>
+            {/if}
+          {/each}
+        {/if}
       {/if}
     </g>
-    <rect fill="rgb(248, 113, 113)" {height} width={padding} x={measure * bandwidth} y="0"></rect>
-    <rect fill="rgba(248, 113, 113, 0.5)" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
+    <rect class="dark:fill-gray-800 duration-750 fill-white transition" class:opacity-0={ready} {height} {width} x="0" y="0"></rect>
+    <rect class="fill-red-400" {height} width={padding} x={measure * bandwidth} y="0"></rect>
+    <rect class="fill-red-400/50" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
   </svg>
 </div>

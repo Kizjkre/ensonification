@@ -1,6 +1,6 @@
 <script>
   import samples from '$lib/state/samples.svelte.js';
-  import { onMount } from 'svelte';
+  import { theme } from '$lib/state/theme.svelte.js';
 
   const active = $state({});
 
@@ -11,15 +11,7 @@
   const handleKeyDown = e => active[e.key] && (active[e.key] = 0.5);
   const handleKeyUp = e => samples[e.key] && (active[e.key] = 1);
 
-  let stroke = $state('black');
-
-  onMount(() => {
-    const dark = matchMedia('(prefers-color-scheme: dark)');
-
-    if (dark) stroke = 'white';
-
-    dark.addEventListener('change', ({ matches }) => stroke = matches ? 'white' : 'black');
-  });
+  const stroke = $derived(theme.dark ? 'white' : 'black');
 </script>
 
 <svelte:window onkeydown={ handleKeyDown } onkeyup={ handleKeyUp } />
