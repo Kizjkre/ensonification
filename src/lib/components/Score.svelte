@@ -66,6 +66,7 @@
       .range([0, width])
       .padding(xpad);
   });
+  const xmin = 5;
   const bandwidth = $derived(xscale.bandwidth() === 0 ? width / (xdomain.length + 2) : xscale.bandwidth() / (1 - xpad));
   const padding = $derived.by(() => {
     const padding = xpad * bandwidth;
@@ -86,6 +87,7 @@
           .range([height - 10 - ypad * 2, ypad * 2]);
     }
   });
+  const ymin = 2;
 
   const colordomain = $derived(d3.extent(color || []));
   const colorfunc = $derived(c =>
@@ -157,7 +159,14 @@
     <g>
       {#each Array(staff[file.id]).fill() as _, i (i)}
         {#if i > 0 && ready}
-          <line class="dark:stroke-gray-700 stroke-gray-300" stroke-width="5" x1="0" x2={width} y1={height / staff[file.id] * i} y2={height / staff[file.id] * i}></line>
+          <line
+            class="dark:stroke-gray-700 stroke-gray-300"
+            stroke-width="5"
+            x1="0"
+            x2={width}
+            y1={height / staff[file.id] * i}
+            y2={height / staff[file.id] * i}
+          ></line>
         {/if}
       {/each}
     </g>
@@ -165,14 +174,38 @@
       {#if ready}
         {#if mode[file.id] === MODE.BLOCK}
           {#each zip as { x, y, color }, i (i)}
-            <rect fill={colorfunc(color)} height={yscale.bandwidth()} width={xscale.bandwidth()} x={xscale(x)} y={yscale(y)}></rect>
+            {@const width = xscale.bandwidth()}
+            {@const height = yscale.bandwidth()}
+            <rect
+              fill={colorfunc(color)}
+              height={height < ymin ? ymin : height}
+              width={width < xmin ? xmin : width}
+              x={xscale(x) - +(width < 5) * xmin / 2}
+              y={yscale(y) - +(height < 2) * ymin / 2}
+            ></rect>
           {/each}
         {:else if mode[file.id] === MODE.LINE}
           {#each zip as { x, y, color }, i (i)}
             {#if i === zip.length - 1}
-              <line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={width} y1={yscale(y)} y2={yscale(y)}></line>
+              <line
+                stroke={colorfunc(color)}
+                stroke-linecap="round"
+                stroke-width="10"
+                x1={xscale(x)}
+                x2={width}
+                y1={yscale(y)}
+                y2={yscale(y)}
+              ></line>
             {:else}
-              <line stroke={colorfunc(color)} stroke-linecap="round" stroke-width="10" x1={xscale(x)} x2={xscale(zip[i + 1].x)} y1={yscale(y)} y2={yscale(zip[i + 1].y)}></line>
+              <line
+                stroke={colorfunc(color)}
+                stroke-linecap="round"
+                stroke-width="10"
+                x1={xscale(x)}
+                x2={xscale(zip[i + 1].x)}
+                y1={yscale(y)}
+                y2={yscale(zip[i + 1].y)}
+              ></line>
             {/if}
           {/each}
         {/if}

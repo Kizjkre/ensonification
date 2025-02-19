@@ -104,15 +104,22 @@
         aria-label="left slider"
         bind:this={left}
         class="absolute active:outline active:outline-black bg-gray-200 h-[120%] hover:outline hover:outline-black left-0 rounded top-[-10%] w-2 z-10"
+        class:hidden={!(file.id in data) || !columns}
         class:!z-20={target === left || lastTarget === left}
       ></button>
       <button
         aria-label="right slider"
         bind:this={right}
         class="absolute active:outline active:outline-black bg-gray-200 h-[120%] hover:outline hover:outline-black left-0 rounded top-[-10%] w-2 z-10"
+        class:hidden={!(file.id in data) || !columns}
         class:!z-20={target === right || lastTarget === right}
       ></button>
-      <button class="h-full" onclick={handleSpectrum}>
+      <button
+        class="h-full"
+        class:cursor-not-allowed={!(file.id in data) || !columns}
+        disabled={!(file.id in data) || !columns}
+        onclick={handleSpectrum}
+      >
         <img alt="Turbo spectrum" class="h-full m-0 rounded-full" draggable="false" src="./assets/spectrum.png">
       </button>
     </div>
