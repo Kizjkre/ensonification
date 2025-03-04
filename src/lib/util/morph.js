@@ -75,7 +75,6 @@ class SpectralMorphProcessor extends AudioWorkletProcessor {
         this.offset++;
       }
     }
-    console.log(123);
 
     return true;
   }

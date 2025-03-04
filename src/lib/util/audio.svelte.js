@@ -77,19 +77,20 @@ $effect.root(() => {
         });
         break;
       case MODE.LINE:
-        await ctx.audioWorklet.addModule(morph);
-
-        current.forEach(({ y, color }) => {
-          const near = [...coords].toSorted((a, b) => Math.sqrt((a.x - domain.values[color]) ** 2 + (a.y - range.values[y]) ** 2) - Math.sqrt((b.x - domain.values[color]) ** 2 + (b.y - range.values[y]) ** 2));
-          const factor = Math.sqrt((near[0].x - domain.values[color]) ** 2 + (near[0].y - range.values[y]) ** 2) / Math.sqrt((near[0].x - near[1].x) ** 2 + (near[0].y - near[1].y) ** 2);
-
-          const node = new AudioWorkletNode(ctx, 'spectral-morph-processor', { outputChannelCount: [1] });
-          // NOTE: mono only for now
-          node.port.postMessage({ type: 'buffers', bufferA: s[near[0].y][near[0].x].getChannelData(0), bufferB: s[near[1].y][near[1].x].getChannelData(0) });
-          node.port.postMessage({ type: 'morphFactor', value: factor });
-          node.port.postMessage({ type: 'process' });
-          node.connect(ctx.destination);
-        });
+        // NOTE: disable spectral morphing for now
+        // await ctx.audioWorklet.addModule(morph);
+        //
+        // current.forEach(({ y, color }) => {
+        //   const near = [...coords].toSorted((a, b) => Math.sqrt((a.x - domain.values[color]) ** 2 + (a.y - range.values[y]) ** 2) - Math.sqrt((b.x - domain.values[color]) ** 2 + (b.y - range.values[y]) ** 2));
+        //   const factor = Math.sqrt((near[0].x - domain.values[color]) ** 2 + (near[0].y - range.values[y]) ** 2) / Math.sqrt((near[0].x - near[1].x) ** 2 + (near[0].y - near[1].y) ** 2);
+        //
+        //   const node = new AudioWorkletNode(ctx, 'spectral-morph-processor', { outputChannelCount: [1] });
+        //   // NOTE: mono only for now
+        //   node.port.postMessage({ type: 'buffers', bufferA: s[near[0].y][near[0].x].getChannelData(0), bufferB: s[near[1].y][near[1].x].getChannelData(0) });
+        //   node.port.postMessage({ type: 'morphFactor', value: factor });
+        //   node.port.postMessage({ type: 'process' });
+        //   node.connect(ctx.destination);
+        // });
         break;
     }
   });
