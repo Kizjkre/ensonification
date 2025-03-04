@@ -1,5 +1,5 @@
 export default strings => {
-  if (typeof strings[0] === 'number') return strings;
+  if (strings.every(s => !isNaN(s))) return { out: strings, map: {} };
 
   const map = {};
   const out = [];
@@ -10,5 +10,5 @@ export default strings => {
     out.push(map[string]);
   });
 
-  return out;
-}
+  return { out, map };
+};

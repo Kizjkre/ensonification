@@ -4,7 +4,7 @@
 </script>
 
 <section class="flex flex-col gap-2 h-full items-center justify-center pt-1 w-full">
-  <!--  Hacky -->
+  <!--  NOTE: Hacky -->
   {#if matrix[0].length !== 0}
   	<p class="m-0 text-green-400">matrix applied.</p>
   {:else}

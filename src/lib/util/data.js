@@ -1,7 +1,7 @@
 const root = await navigator.storage.getDirectory();
 const dir = await root.getDirectoryHandle('data', { create: true });
 
-const save = new Event('save');
+const save = new Event('save-data');
 
 export const add = async (name, data) => {
   const file = await dir.getFileHandle(name + '.json', { create: true });
@@ -26,11 +26,11 @@ export const read = async name => {
       await listener(res)();
     } catch {
       l = listener(res);
-      document.addEventListener('save', l);
+      document.addEventListener('save-data', l);
     }
   });
 
-  document.removeEventListener('save', l);
+  document.removeEventListener('save-data', l);
 
   return result;
 };

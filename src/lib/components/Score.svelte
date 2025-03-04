@@ -2,8 +2,11 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import colorstate from '$lib/state/color.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
+  import domain from '$lib/state/domain.svelte.js';
   import file from '$lib/state/file.svelte.js';
+  import measure from '$lib/state/measure.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
+  import range from '$lib/state/range.svelte.js';
   import staff from '$lib/state/staff.svelte.js';
   import status from '$lib/state/status.svelte.js';
   import xstate from '$lib/state/x.svelte.js';
@@ -19,7 +22,6 @@
   let height = $state(0);
   let width = $state(0);
 
-  let measure = $state(0);
   let position = $state(0);
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,9 +40,15 @@
     ready = true;
   });
 
-  const xraw = $derived(xstate[file.id] !== -1 ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []) : raw.data.map((_, i) => i));
-  const yraw = $derived(atoi(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []));
-  const colorraw = $derived(atoi(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []));
+  const ytransform = $derived(atoi(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []));
+  const colortransform = $derived(atoi(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []));
+
+  const xraw = $derived(xstate[file.id] !== -1 ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []).out : raw.data.map((_, i) => i));
+  const yraw = $derived(ytransform.out);
+  const colorraw = $derived(colortransform.out);
+
+  $effect(() => { range.values = ytransform.map });
+  $effect(() => { domain.values = colortransform.map });
 
   const nulls = $derived(
     new Set(
@@ -51,7 +59,7 @@
     )
   );
 
-  const x = $derived(xraw.length > 0 ? xraw.filter((_, i) => !nulls.has(i)) : Array(Math.min(yraw.length, colorraw.length) - nulls.size).fill().map((_, i) => i));
+  const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
   const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
   const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
   const zip = $derived(x.map((d, i) => ({ x: d, y: y[i], color: color[i] })));
@@ -103,15 +111,15 @@
     switch (e.key) {
       case ' ':
         if (status.playing) break;
-        measure++;
+        measure.value++;
         break;
       case 'Backspace':
         if (status.playing) break;
-        measure--;
+        measure.value--;
         break;
       case 'Enter':
         if (status.playing) break;
-        measure = 0;
+        measure.value = 0;
         break;
       case 'Shift':
         status.playing = !status.playing;
@@ -131,17 +139,17 @@
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   let audio;
-  onMount(async () => audio = await import('$lib/util/audio.js'));
+  onMount(async () => audio = await import('$lib/util/audio.svelte.js'));
 
   const TRANSITION_DURATION = 0;
 
   let t = -1;
   const start = () => {
     t === -1 && (t = audio.ctx.currentTime);
-    audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure++;
+    audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure.value++;
     position = ((audio.ctx.currentTime - t) * bpm[file.id] / 60) % 1;
     status.playing && requestAnimationFrame(start);
-    !status.playing && (t = -1) && (measure = (position = 0));
+    !status.playing && (t = -1) && (measure.value = (position = 0));
   };
 
   $effect(async () => {
@@ -212,7 +220,7 @@
       {/if}
     </g>
     <rect class="dark:fill-gray-800 duration-750 fill-white transition" class:opacity-0={ready} {height} {width} x="0" y="0"></rect>
-    <rect class="fill-red-400" {height} width={padding} x={measure * bandwidth} y="0"></rect>
-    <rect class="fill-red-400/50" {height} width={padding} x={(measure + position) * bandwidth} y="0"></rect>
+    <rect class="fill-red-400" {height} width={padding} x={measure.value * bandwidth} y="0"></rect>
+    <rect class="fill-red-400/50" {height} width={padding} x={(measure.value + position) * bandwidth} y="0"></rect>
   </svg>
 </div>

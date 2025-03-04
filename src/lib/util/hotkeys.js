@@ -7,7 +7,7 @@ import samples from '$lib/state/samples.svelte.js';
 let audio, read;
 
 export const handleKeydown = async e => {
-  audio ??= await import('./audio.js');
+  audio ??= await import('./audio.svelte.js');
   read ??= (await import('./samples.js')).read;
 
   const keys = Object.keys(data);
@@ -37,6 +37,7 @@ export const handleKeydown = async e => {
     const source = new AudioBufferSourceNode(audio.ctx, { buffer: audio.buffers[e.key] });
     source.connect(audio.ctx.destination);
     source.start();
+    // TODO: remove node after stop
   }
 
   if (modifiers.control && e.key.match(/[0-9]/)) file.id = +keys[e.key - 1] || file.id;
