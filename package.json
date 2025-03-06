@@ -1,29 +1,27 @@
 {
-  "name": "sonification-ensemble",
-  "version": "0.0.1-alpha (5)",
+  "name": "ensonification",
+  "private": true,
+  "version": "0.2.4 (1)",
+  "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "host": "vite --host",
+    "dev:host": "vite dev --host",
     "build": "vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@fontsource/fira-mono": "^4.5.10",
-    "@neoconfetti/svelte": "^1.0.0",
     "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/adapter-static": "^3.0.8",
     "@sveltejs/kit": "^2.0.0",
-    "@sveltejs/vite-plugin-svelte": "^3.0.0",
-    "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.38",
-    "svelte": "^4.2.7",
-    "tailwindcss": "^3.4.4",
-    "vite": "^5.0.3"
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "autoprefixer": "^10.4.20",
+    "svelte": "^5.0.0",
+    "tailwindcss": "^3.4.9",
+    "vite": "^5.4.11"
   },
-  "type": "module",
   "dependencies": {
-    "@sveltejs/adapter-static": "^3.0.2",
-    "@tensorflow/tfjs": "^4.20.0",
-    "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "@tailwindcss/typography": "^0.5.15",
     "d3": "^7.9.0"
   }
 }

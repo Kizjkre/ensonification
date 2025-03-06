@@ -1,20 +1,20 @@
 <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_566_12)">
-<rect width="100" height="100" fill="#4B535D"/>
-<rect x="30" width="3" height="100" fill="#FF0000"/>
-<rect x="-2" y="2" width="10" height="47" fill="#BAE8F5"/>
-<rect x="81" y="51" width="10" height="47" fill="#BAE8F5"/>
-<rect x="33" y="2" width="10" height="47" fill="#BAE8F5"/>
-<rect x="45" y="2" width="10" height="47" fill="#BAE8F5"/>
-<rect x="57" y="51" width="10" height="47" fill="#D3F5BA"/>
-<rect x="10" y="2" width="10" height="47" fill="#F5BAC7"/>
-<rect x="92" y="2" width="10" height="47" fill="#F5BAC7"/>
-<rect x="20" y="51" width="10" height="47" fill="#F5BAC7"/>
-<rect x="69" y="51" width="10" height="47" fill="#F5BAC7"/>
-</g>
-<defs>
-<clipPath id="clip0_566_12">
-<rect width="100" height="100" fill="white"/>
-</clipPath>
-</defs>
+    <g clip-path="url(#clip0_566_12)">
+        <rect width="100" height="100" fill="#4B535D"/>
+        <rect x="30" width="3" height="100" fill="#FF0000"/>
+        <rect x="-2" y="2" width="10" height="47" fill="#BAE8F5"/>
+        <rect x="81" y="51" width="10" height="47" fill="#BAE8F5"/>
+        <rect x="33" y="2" width="10" height="47" fill="#BAE8F5"/>
+        <rect x="45" y="2" width="10" height="47" fill="#BAE8F5"/>
+        <rect x="57" y="51" width="10" height="47" fill="#D3F5BA"/>
+        <rect x="10" y="2" width="10" height="47" fill="#F5BAC7"/>
+        <rect x="92" y="2" width="10" height="47" fill="#F5BAC7"/>
+        <rect x="20" y="51" width="10" height="47" fill="#F5BAC7"/>
+        <rect x="69" y="51" width="10" height="47" fill="#F5BAC7"/>
+    </g>
+    <defs>
+        <clipPath id="clip0_566_12">
+            <rect width="100" height="100" fill="white"/>
+        </clipPath>
+    </defs>
 </svg>

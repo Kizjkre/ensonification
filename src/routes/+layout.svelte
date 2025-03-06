@@ -1,9 +1,10 @@
 <script>
-  import '$lib/app.css';
+	import '../app.css';
+	let { children } = $props();
 </script>
-
-<slot />
 
 <svelte:head>
   <title>Ensonification</title>
 </svelte:head>
+
+{@render children()}
