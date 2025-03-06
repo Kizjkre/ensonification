@@ -2,11 +2,11 @@
   import Controls from '$lib/components/Controls.svelte';
   import Load from '$lib/components/Load.svelte';
   import Score from '$lib/components/Score.svelte';
-  import { handleKeydown, handleKeyUp } from '$lib/util/hotkeys.js';
-  import menu from '$lib/state/menu.svelte.js';
-  import init from '$lib/util/init.svelte.js';
   import { init as dinit } from '$lib/state/data.svelte.js';
+  import menu from '$lib/state/menu.svelte.js';
   import { init as tinit } from '$lib/state/theme.svelte.js';
+  import { handleKeydown, handleKeyUp } from '$lib/util/hotkeys.js';
+  import init from '$lib/util/init.svelte.js';
 
   init();
   dinit();

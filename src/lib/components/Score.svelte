@@ -62,7 +62,7 @@
   const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
   const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
   const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
-  const zip = $derived(x.map((d, i) => ({ x: d, y: y[i], color: color[i] })));
+  const coords = $derived(x.map((d, i) => ({ x: d, y: y[i] })));
 
   const xdomain = $derived([...new Set(x)]);
   const xpad = $derived(0.1 / 50 * (xdomain.length + 2));
@@ -158,6 +158,69 @@
       requestAnimationFrame(start);
     }
   });
+
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let fragment;
+  onMount(() => fragment = document.createDocumentFragment());
+
+  let g;
+  let points = $state([]);
+  $effect(() => {
+    if (!points.length || !color.length) return;
+
+    switch (mode[file.id]) {
+      case MODE.BLOCK:
+        color.forEach((c, i) => points[i].setAttribute('fill', colorfunc(c)));
+        break;
+      case MODE.LINE:
+        color.forEach((c, i) => points[i].setAttribute('stroke', colorfunc(c)));
+        break;
+
+    }
+  });
+
+  $effect(() => {
+    if (!coords || !fragment || !g || !ready) return;
+
+    const temp = [];
+
+    switch (mode[file.id]) {
+      case MODE.BLOCK:
+        coords.forEach(({ x, y }) => {
+          const width = xscale.bandwidth();
+          const height = yscale.bandwidth();
+
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('height', height < ymin ? ymin : height);
+          rect.setAttribute('width', width < xmin ? xmin : width);
+          rect.setAttribute('x', xscale(x) - +(width < 5) * xmin / 2);
+          rect.setAttribute('y', yscale(y) - +(height < 2) * ymin / 2);
+          fragment.appendChild(rect);
+
+          temp.push(rect);
+        });
+        break;
+      case MODE.LINE:
+        coords.forEach(({ x, y }, i) => {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('stroke-linecap', 'round');
+          line.setAttribute('stroke-width', '10');
+          line.setAttribute('x1', xscale(x));
+          line.setAttribute('x2', xscale(i + 1 >= coords.length ? x : coords[i + 1].x));
+          line.setAttribute('y1', yscale(y));
+          line.setAttribute('y2', yscale(i + 1 >= coords.length ? y : coords[i + 1].y));
+          fragment.appendChild(line);
+
+          temp.push(line);
+        });
+        break;
+    }
+
+    points = temp;
+
+    g.replaceChildren(fragment);
+  });
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onresize={handleResize} />
@@ -178,47 +241,7 @@
         {/if}
       {/each}
     </g>
-    <g>
-      {#if ready}
-        {#if mode[file.id] === MODE.BLOCK}
-          {#each zip as { x, y, color }, i (i)}
-            {@const width = xscale.bandwidth()}
-            {@const height = yscale.bandwidth()}
-            <rect
-              fill={colorfunc(color)}
-              height={height < ymin ? ymin : height}
-              width={width < xmin ? xmin : width}
-              x={xscale(x) - +(width < 5) * xmin / 2}
-              y={yscale(y) - +(height < 2) * ymin / 2}
-            ></rect>
-          {/each}
-        {:else if mode[file.id] === MODE.LINE}
-          {#each zip as { x, y, color }, i (i)}
-            {#if i === zip.length - 1}
-              <line
-                stroke={colorfunc(color)}
-                stroke-linecap="round"
-                stroke-width="10"
-                x1={xscale(x)}
-                x2={width}
-                y1={yscale(y)}
-                y2={yscale(y)}
-              ></line>
-            {:else}
-              <line
-                stroke={colorfunc(color)}
-                stroke-linecap="round"
-                stroke-width="10"
-                x1={xscale(x)}
-                x2={xscale(zip[i + 1].x)}
-                y1={yscale(y)}
-                y2={yscale(zip[i + 1].y)}
-              ></line>
-            {/if}
-          {/each}
-        {/if}
-      {/if}
-    </g>
+    <g bind:this={g}></g>
     <rect class="dark:fill-gray-800 duration-750 fill-white transition" class:opacity-0={ready} {height} {width} x="0" y="0"></rect>
     <rect class="fill-red-400" {height} width={padding} x={measure.value * bandwidth} y="0"></rect>
     <rect class="fill-red-400/50" {height} width={padding} x={(measure.value + position) * bandwidth} y="0"></rect>
