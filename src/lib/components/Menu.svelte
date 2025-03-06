@@ -5,21 +5,39 @@
   import matrix from '$lib/state/matrix.svelte.js';
   import menu from '$lib/state/menu.svelte.js';
   import status from '$lib/state/status.svelte.js';
-  import { autoType, csvParse, csvParseRows } from 'd3-dsv';
   import { onMount } from 'svelte';
+  import Worker from '$lib/util/workers/csv.js?worker';
 
   let samples;
   onMount(async () => samples = await import('../util/samples.js'));
+
+  let name = null;
+  let worker = null;
+
+  onMount(() => {
+    worker = new Worker();
+
+    worker.onmessage = e => {
+      const { action, payload } = e.data;
+      switch (action) {
+        case 'data':
+          const id = addData(name, payload);
+          file.id ??= id;
+          break;
+        case 'matrix':
+          Object.assign(matrix, payload);
+          break;
+      }
+    };
+  });
 
   const handleStart = () => status.playing = !status.playing;
 
   const handleData = e => {
     Array.from(e.target.files).forEach(async f => {
       const raw = await f.text();
-      try {
-        const id = addData(f.name, csvParse(raw, autoType));
-        file.id ??= id;
-      } catch {}
+      worker.postMessage({ action: 'data', payload: raw });
+      name = f.name;
     });
     e.target.value = null;
     e.target.blur();
@@ -28,12 +46,13 @@
   const handleSamples = e => {
     try {
       Array.from(e.target.files).forEach(async file => (await samples).add(file.name, await file.arrayBuffer()));
-    } catch {}
+    } catch {
+    }
     e.target.value = null;
     e.target.blur();
   };
 
-  const handleMatrix = async e => Object.assign(matrix, csvParseRows(await e.target.files[0].text()));
+  const handleMatrix = async e => worker.postMessage({ action: 'matrix', payload: await e.target.files[0].text() });
 
   const handleClear = async () => {
     await (await samples)?.clear(); // TODO: temp bypass for Firefox
