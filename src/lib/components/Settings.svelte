@@ -89,11 +89,12 @@
   onMount(handleResize);
 </script>
 
+<svelte:window onresize={handleResize}></svelte:window>
+
 <svelte:document
   onmousedown={handleMousedown}
   onmousemove={handleMousemove}
   onmouseup={handleMouseup}
-  onresize={handleResize}
 ></svelte:document>
 
 <section class="gap-x-2 grid grid-cols-6 grid-rows-3">

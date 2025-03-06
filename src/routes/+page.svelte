@@ -11,6 +11,8 @@
   init();
   dinit();
   tinit();
+
+  // NOTE: https://stackoverflow.com/questions/29032884/why-is-a-signaling-server-needed-for-webrtc
 </script>
 
 <svelte:window onkeydown={handleKeydown} onkeyup={handleKeyUp}></svelte:window>
