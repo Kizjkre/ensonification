@@ -1,0 +1,42 @@
+@import '../../style.css';
+
+* {
+  text-wrap: nowrap;
+}
+
+button {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  box-sizing: border-box;
+  cursor: pointer;
+  height: max-content;
+  outline: none;
+  transition: all 100ms ease-in-out;
+
+  &:hover {
+    text-shadow: 0 0 0.1em var(--text);
+  }
+
+  &.checked {
+    border: 1px dashed color-mix(in srgb, var(--text) 50%, transparent 50%);
+    text-shadow: 0 0 0.2em var(--text);
+  }
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25dvh;
+  height: 100%;
+  width: 100%;
+
+  & > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5dvh;
+    height: 100%;
+    overflow: scroll;
+    width: 100%;
+  }
+}

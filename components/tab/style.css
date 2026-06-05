@@ -1,0 +1,52 @@
+:root {
+  --indicator: transparent;
+}
+
+aside {
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--text) 50%, transparent 50%);
+  border-radius: 10px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1dvh;
+  height: 100%;
+  justify-content: space-between;
+  padding: 1dvh 0.5dvh;
+  transition: all 100ms ease-in-out;
+
+  &:hover {
+    background: color-mix(in srgb, transparent 90%, var(--text) 10%);
+  }
+
+  & > div {
+    aspect-ratio: 1 / 1;
+    background-color: var(--indicator);
+    border: 1px solid var(--text);
+    border-radius: 50%;
+    box-sizing: border-box;
+    transition: all 100ms ease-in-out;
+    width: 1em;
+  }
+
+  & > p {
+    margin: 0;
+    text-orientation: mixed;
+    user-select: none;
+    writing-mode: sideways-lr;
+  }
+}
+
+main {
+  height: 100%;
+  overflow: scroll;
+  transition: all 500ms ease-in-out;
+  width: 0;
+}
+
+section {
+  display: flex;
+  gap: 1dvh;
+  height: 100%;
+}

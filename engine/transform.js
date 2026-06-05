@@ -1,0 +1,21 @@
+export const transforms = [
+  'Aggregate',
+  'Bin',
+  'Calculate',
+  'Density',
+  'Extent',
+  'Filter',
+  'Flatten',
+  'Fold',
+  'Impute',
+  'Join Aggregate',
+  'Loess',
+  'Lookup',
+  'Pivot',
+  'Quantile',
+  'Regression',
+  'Sample',
+  'Stack',
+  'Time Unit',
+  'Window'
+];

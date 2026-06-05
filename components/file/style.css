@@ -1,0 +1,33 @@
+@import '../../style.css';
+
+button {
+  align-items: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10%;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: 100ms all ease;
+  width: 5dvw;
+
+  &:hover, &.selected {
+    text-shadow: 0 0 0.2em var(--text);
+
+    & > svg {
+      filter: drop-shadow(0 0 0.2em var(--text));
+    }
+  }
+
+  &.selected {
+    border: 1px dashed color-mix(in srgb, var(--text) 50%, transparent 50%);
+  }
+
+  & > span {
+    max-width: 4dvw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

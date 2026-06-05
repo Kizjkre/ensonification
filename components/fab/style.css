@@ -1,0 +1,38 @@
+@import '../../style.css';
+
+button {
+  align-items: center;
+  aspect-ratio: 1 / 1;
+  background: color-mix(in srgb, transparent 70%, var(--text) 30%);
+  border: none;
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  transition: 100ms all ease;
+
+  &:hover {
+    background: color-mix(in srgb, transparent 50%, var(--text) 50%);
+  }
+}
+
+div {
+  background-color: color-mix(in srgb, var(--primary) 90%, transparent 10%);
+  border-radius: 10px;
+  font-size: 0.75em;
+  left: 3.5em;
+  opacity: 0;
+  padding: 0.5em 0.5em;
+  pointer-events: none;
+  position: absolute;
+  top: 0.25em;
+  transition: 100ms all ease;
+  user-select: none;
+  width: max-content;
+  z-index: 1;
+}
+
+section {
+  position: relative;
+}
