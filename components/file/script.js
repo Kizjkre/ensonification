@@ -1,31 +1,48 @@
-import state from '../../utils/state.js';
+import { setCurrent } from '../../state/actions/current.js';
+import { setName } from '../../state/actions/score.js';
+import state from '../../state/state.js';
 
 const html = await fetch('components/file/index.html').then(r => r.text());
+const css = await fetch('components/file/style.css').then(r => r.text());
+const global = await fetch('style.css').then(r => r.text());
 
 class File extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = html;
+
+    const style = document.createElement('style');
+    style.textContent = css + '\n' + global;
+    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
   connectedCallback() {
-    const type = this.getAttribute('type');
-    const template = this.shadowRoot.querySelector(`#${ type }`);
-    const clone = template.content.cloneNode(true);
     const button = this.shadowRoot.querySelector('button');
-    button.prepend(clone);
+    const input = this.shadowRoot.querySelector('input');
 
-    const id = this.getAttribute('ens-id');
-    button.addEventListener('click', () => {
-      state.id = state.id === +id ? -1 : +id;
-      state.field = null;
+    input.focus();
+
+    button.addEventListener('click', () => setCurrent('score', this._id));
+
+    input.addEventListener('input', () => {
+      input.value = input.value.trimStart();
+      setName(this._id, input.value);
     });
+    input.addEventListener('change', () => input.blur());
 
     mobx.autorun(() => {
-      button.classList[state.id === +id ? 'add' : 'remove']('selected');
+      button.classList.toggle('selected', state.current.score === this._id);
     });
+  }
+
+  get ensId() {
+    return this._id;
+  }
+
+  set ensId(id) {
+    this._id = id;
   }
 }
 

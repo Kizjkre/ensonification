@@ -1,5 +1,3 @@
-@import '../../style.css';
-
 div {
   align-content: start;
   background: color-mix(in srgb, transparent 90%, var(--text) 10%);

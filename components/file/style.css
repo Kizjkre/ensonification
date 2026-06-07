@@ -1,7 +1,16 @@
-@import '../../style.css';
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
 
 button {
   align-items: center;
+  animation: appear 100ms ease-in-out forwards;
   background: none;
   border: 1px solid transparent;
   border-radius: 10%;
@@ -9,10 +18,11 @@ button {
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  opacity: 0;
   transition: 100ms all ease;
   width: 5dvw;
 
-  &:hover, &.selected {
+  &:hover, &.selected, &:hover > input, &.selected > input {
     text-shadow: 0 0 0.2em var(--text);
 
     & > svg {
@@ -24,10 +34,21 @@ button {
     border: 1px dashed color-mix(in srgb, var(--text) 50%, transparent 50%);
   }
 
-  & > span {
+  & > input {
+    background: none;
+    border: none;
     max-width: 4dvw;
     overflow: hidden;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &:focus {
+      outline: none;
+    }
+
+    &::placeholder {
+      color: color-mix(in srgb, var(--text) 50%, transparent 50%);
+    }
   }
 }

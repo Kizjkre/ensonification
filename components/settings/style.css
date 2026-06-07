@@ -1,5 +1,3 @@
-@import '../../style.css';
-
 @keyframes appear {
   0% {
     bottom: calc(-30dvh - max(1dvw, 1dvh));

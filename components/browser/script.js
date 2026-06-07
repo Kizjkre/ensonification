@@ -1,48 +1,38 @@
 import '../file/script.js';
-import { file as createFile } from '../../utils/state.js';
+import { resetCurrent } from '../../state/actions/current.js';
+import state from '../../state/state.js';
 
 const html = await fetch('components/browser/index.html').then(r => r.text());
+const css = await fetch('components/browser/style.css').then(r => r.text());
+const global = await fetch('style.css').then(r => r.text());
 
 class Browser extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = html;
+
+    const style = document.createElement('style');
+    style.textContent = css + '\n' + global;
+    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
   connectedCallback() {
-    document.addEventListener('ens-mount', async () => {
-      const dir = await showDirectoryPicker({ startIn: 'documents' });
+    const div = this.shadowRoot.querySelector('div');
+    div.addEventListener('click', e => e.target === div && resetCurrent());
 
-      for await (const [name, handle] of dir.entries()) {
-        if (name.startsWith('.')) continue;
-
-        const id = await createFile(name, handle);
-
+    mobx.observe(state.scores, changes => {
+      changes.added.forEach(score => {
         const file = document.createElement('ens-file');
-        file.textContent = name;
-        file.setAttribute('ens-id', id);
-        switch (name.split('.').at(-1)) {
-          case 'csv':
-            file.setAttribute('type', 'csv');
-            break;
-          case 'mp3':
-          case 'wav':
-          case 'ogg':
-          case 'aac':
-          case 'm4a':
-          case 'm4b':
-          case 'mp4':
-          case 'wma':
-          case 'webm':
-            file.setAttribute('type', 'audio');
-            break;
-          default:
-            file.setAttribute('type', 'other');
-        }
-        this.shadowRoot.querySelector('div').appendChild(file);
-      }
+        file.ensId = score.id;
+        div.appendChild(file);
+      });
+
+      changes.removed.forEach(score => {
+        const file = div.querySelector(`[ens-id='${ score.id }']`); // NOTE: probably doesn't work
+        div.removeChild(file);
+      });
     });
   }
 }

@@ -15,16 +15,6 @@
         </svg>
         <span slot="text">hide menu</span>
       </ens-fab>
-      <ens-fab id="mount">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             class="icon icon-tabler icons-tabler-outline icon-tabler-folder-open">
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path
-            d="M5 19l2.757 -7.351a1 1 0 0 1 .936 -.649h12.307a1 1 0 0 1 .986 1.164l-.996 5.211a2 2 0 0 1 -1.964 1.625h-14.026a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v2" />
-        </svg>
-        <span slot="text">load directory</span>
-      </ens-fab>
       <ens-fab id="score">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -41,7 +31,10 @@
     </div>
     <ens-browser></ens-browser>
     <div id="tabs">
-      <ens-field></ens-field>
+      <ens-data></ens-data>
+      <ens-parameter id="field">
+        <span slot="name">field</span>
+      </ens-parameter>
       <ens-parameter id="type">
         <span slot="name">type</span>
       </ens-parameter>

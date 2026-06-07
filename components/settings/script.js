@@ -1,89 +1,74 @@
 import '../browser/script.js';
+import '../data/script.js';
 import '../fab/script.js';
-import '../field/script.js';
 import '../parameter/script.js';
 import { encodings } from '../../engine/encoding.js';
 import { marks } from '../../engine/mark.js';
 import { transforms } from '../../engine/transform.js';
 import { types } from '../../engine/type.js';
-import state, {
-  type as createType,
-  transform as createTransform,
-  encoding as createEncoding,
-  mark as createMark
-} from '../../utils/state.js';
+import { createScore } from '../../state/actions/score.js';
+import { toggleUI } from '../../state/actions/ui.js';
+import state from '../../state/state.js';
 
 const html = await fetch('components/settings/index.html').then(r => r.text());
+const css = await fetch('components/settings/style.css').then(r => r.text());
+const global = await fetch('style.css').then(r => r.text());
 
 class Settings extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = html;
+
+    const style = document.createElement('style');
+    style.textContent = css + '\n' + global;
+    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
   connectedCallback() {
     const escape = this.shadowRoot.querySelector('#escape');
-    const mount = this.shadowRoot.querySelector('#mount');
+    const score = this.shadowRoot.querySelector('#score');
     const section = this.shadowRoot.querySelector('section');
 
+    const field = this.shadowRoot.querySelector('#field');
     const type = this.shadowRoot.querySelector('#type');
     const transform = this.shadowRoot.querySelector('#transform');
     const encoding = this.shadowRoot.querySelector('#encoding');
     const mark = this.shadowRoot.querySelector('#mark');
 
-    let shown = true;
+    // mobx.runInAction(() => {
+    field.name = 'field';
+    field.parameters = () => state.scores[state.current.score]?.data;
+    field.get = ({ name, columns }) => ({
+      [name]: Object.keys(columns)
+    });
+    // field.parameters = 'asdf';
+    field.onClick = (_, i) => {
 
-    escape.addEventListener('click', () => {
-      section.style.animation = 'disappear 150ms ease-in forwards';
-      shown = false;
-    });
+    };
 
-    mount.addEventListener('click', () => document.dispatchEvent(new CustomEvent('ens-mount')));
+    type.name = 'type';
+    type.parameters = () => types;
+    type.onClick = (_, i) => {
 
-    document.addEventListener('hotkey-escape', () => {
-      if (shown) {
-        section.style.animation = 'disappear 150ms ease-in forwards';
-        shown = false;
-      } else {
-        section.style.animation = 'appear 150ms ease-out forwards';
-        shown = true;
-      }
-    });
+    };
 
-    type.onConnected({
-      param: () => {
-        const fields = state.files[state.id]?.fields;
-        const { field } = state;
-        return types.indexOf(fields?.[field]);
-      },
-      params: types,
-      listener: i => createType(i)
-    });
-    transform.onConnected({
-      param: () => {
-        const { field } = state;
-        return state.transforms[state.id]?.[field];
-      },
-      params: transforms,
-      listener: i => createTransform(i)
-    });
-    encoding.onConnected({
-      param: () => {
-        const { field } = state;
-        return state.encodings[state.id]?.[field];
-      },
-      params: encodings,
-      listener: i => createEncoding(i)
-    });
-    mark.onConnected({
-      param: () => {
-        const { field } = state;
-        return state.marks[state.id]?.[field];
-      },
-      params: marks,
-      listener: i => createMark(i)
+    transform.name = 'transform';
+    transform.parameters = () => transforms;
+
+    encoding.name = 'encoding';
+    encoding.parameters = () => encodings;
+
+    mark.name = 'mark';
+    mark.parameters = () => marks;
+
+    escape.addEventListener('click', () => toggleUI(false));
+
+    score.addEventListener('click', () => createScore());
+
+    mobx.autorun(() => {
+      section.style.animation = state.ui.shown ? 'appear 300ms ease-out forwards' : 'disappear 300ms ease-in forwards';
     });
   }
 }

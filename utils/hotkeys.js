@@ -1,7 +1,9 @@
+import { toggleUI } from '../state/actions/ui.js';
+
 document.addEventListener('keyup', e => {
   switch (e.key) {
     case 'Escape':
-      document.dispatchEvent(new CustomEvent('hotkey-escape'));
+      toggleUI();
       break;
   }
 });
