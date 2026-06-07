@@ -28,14 +28,9 @@ class Parameter extends HTMLElement {
     });
 
     this._name = null;
-    this._parameters = null;
     this._listener = null;
-    this._get = x => x;
     mobx.makeObservable(this, {
-      _name: mobx.observable,
-      _parameters: mobx.observable,
-      _listener: mobx.observable,
-      _get: mobx.observable
+      _name: mobx.observable
     });
 
     this._div = this.shadowRoot.querySelector('div');
@@ -49,34 +44,12 @@ class Parameter extends HTMLElement {
     });
 
     mobx.autorun(() => {
-      if (!this._parameters || !this._parameters()) return;
-      mobx.observe(this._parameters(), changes => {
-        switch (changes.type) {
-          case 'add':
-            const parameters = this._get(changes.newValue);
-            if (parameters instanceof Array) {
-              this._createButtons(parameters);
-            } else {
-              Object.entries(parameters).forEach(([section, parameters]) => {
-                const h3 = document.createElement('h3');
-                h3.textContent = section;
-                this._div.appendChild(h3);
-
-                this._createButtons(parameters);
-              });
-            }
-            break;
-        }
-      });
-    });
-
-    mobx.autorun(() => {
       // Array.from(this._div.children).forEach(b => b.classList.toggle('checked', +b.value === p));
       // this._tab.style.setProperty('--indicator', p > -1 ? 'var(--text)' : 'transparent');
     });
   }
 
-  _createButtons(parameters) {
+  add(parameters) {
     parameters.forEach((p, i) => {
       const button = document.createElement('button');
       button.textContent = p.toLowerCase();
@@ -88,17 +61,15 @@ class Parameter extends HTMLElement {
     });
   }
 
+  addHeading(title) {
+    const h3 = document.createElement('h3');
+    h3.textContent = title;
+    this._div.appendChild(h3);
+  }
+
   set name(name) {
     this._name = name;
     this._tab.name = name;
-  }
-
-  set get(get) {
-    this._get = get;
-  }
-
-  set parameters(params) {
-    this._parameters = params;
   }
 
   set onClick(listener) {

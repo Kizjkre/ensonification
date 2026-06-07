@@ -8,7 +8,7 @@ mobx.configure({
   disableErrorBoundaries: true
 });
 
-const state = {
+const state ={
   scores: [],
   current: {
     score: null,
@@ -31,14 +31,15 @@ mobx.makeAutoObservable(state);
 
 export default state;
 
-export const score = {
+export const score = Object.freeze({
   id: state.scores.length,
   name: '',
-  data: {}
-};
+  data: []
+});
 
-export const data = {
+export const data = Object.freeze({
   name: '',
   data: [],
-  columns: {}
-};
+  columns: {},
+  id: -1
+});

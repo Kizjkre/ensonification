@@ -1,3 +1,5 @@
+// noinspection JSConstantReassignment
+
 import { csvParse } from 'https://cdn.jsdelivr.net/npm/d3-dsv@3/+esm';
 import autotype from '../../utils/autotype.js';
 import state, { data, score } from '../state.js';
@@ -10,8 +12,9 @@ export const addData = mobx.action(async files => {
     d.name = file.name;
     d.data = csvParse(await file.text());
     d.columns = Object.fromEntries(Object.entries(autotype(d.data)).map(([col, { type }]) => [col, type]));
+    d.id = state.scores[state.current.score].data.length;
 
-    state.scores[state.current.score].data[d.name] = d;
+    state.scores[state.current.score].data.push(d);
   }
 });
 

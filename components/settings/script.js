@@ -8,6 +8,7 @@ import { transforms } from '../../engine/transform.js';
 import { types } from '../../engine/type.js';
 import { createScore } from '../../state/actions/score.js';
 import { toggleUI } from '../../state/actions/ui.js';
+import { reactData } from '../../state/reactions.js';
 import state from '../../state/state.js';
 
 const html = await fetch('components/settings/index.html').then(r => r.text());
@@ -39,29 +40,52 @@ class Settings extends HTMLElement {
 
     // mobx.runInAction(() => {
     field.name = 'field';
-    field.parameters = () => state.scores[state.current.score]?.data;
-    field.get = ({ name, columns }) => ({
-      [name]: Object.keys(columns)
+    reactData(data => {
+      if (!data) return;
+
+      mobx.observe(data, changes => {
+        console.log(changes);
+        // changes.added.forEach(d => {
+        //   field.addHeading(d.name);
+        //   field.add(Object.keys(d.columns));
+        // });
+      });
     });
-    // field.parameters = 'asdf';
+    // mobx.reaction(
+    //   () => state.scores[state.current.score]?.data,
+    //   (data, a, b) => {
+    //     if (!data) return;
+    //     console.log(a, b);
+    //
+    //     const disposer = mobx.observe(data, (changes) => {
+    //       switch (changes.type) {
+    //         case 'add':
+    //           field.addHeading(changes.newValue.name);
+    //           field.add(Object.keys(changes.newValue.columns));
+    //           break;
+    //       }
+    //     });
+    //   }
+    // );
+
     field.onClick = (_, i) => {
 
     };
 
-    type.name = 'type';
-    type.parameters = () => types;
-    type.onClick = (_, i) => {
-
-    };
-
-    transform.name = 'transform';
-    transform.parameters = () => transforms;
-
-    encoding.name = 'encoding';
-    encoding.parameters = () => encodings;
-
-    mark.name = 'mark';
-    mark.parameters = () => marks;
+    // type.name = 'type';
+    // type.parameters = () => types;
+    // type.onClick = (_, i) => {
+    //
+    // };
+    //
+    // transform.name = 'transform';
+    // transform.parameters = () => transforms;
+    //
+    // encoding.name = 'encoding';
+    // encoding.parameters = () => encodings;
+    //
+    // mark.name = 'mark';
+    // mark.parameters = () => marks;
 
     escape.addEventListener('click', () => toggleUI(false));
 
