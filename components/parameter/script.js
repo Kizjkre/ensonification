@@ -1,5 +1,5 @@
 import '../tab/script.js';
-import state from '../../state/state.js';
+import { register, unregister } from '../../state/reactions/parameter.js';
 
 const html = await fetch('components/parameter/index.html').then(r => r.text());
 const css = await fetch('components/parameter/style.css').then(r => r.text());
@@ -39,14 +39,17 @@ class Parameter extends HTMLElement {
 
   // noinspection JSUnusedGlobalSymbols
   connectedCallback() {
-    mobx.autorun(() => {
-      this._tab.setAttribute('disabled', (state.current.score === null).toString());
-    });
+    register(this._tab);
 
-    mobx.autorun(() => {
+    // mobx.autorun(() => {
       // Array.from(this._div.children).forEach(b => b.classList.toggle('checked', +b.value === p));
       // this._tab.style.setProperty('--indicator', p > -1 ? 'var(--text)' : 'transparent');
-    });
+    // });
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  disconnectedCallback() {
+    unregister();
   }
 
   add(parameters) {

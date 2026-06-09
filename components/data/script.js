@@ -1,6 +1,6 @@
 import '../tab/script.js';
 import { addData } from '../../state/actions/score.js';
-import state from '../../state/state.js';
+import { register, unregister } from '../../state/reactions/data.js';
 import dropzone from '../../utils/dropzone.js';
 import { isCSV } from '../../utils/type.js';
 
@@ -35,6 +35,8 @@ class Data extends HTMLElement {
 
     tab.name = 'data';
 
+    register(tab);
+
     const upload = this.shadowRoot.querySelector('#upload');
     const csv = this.shadowRoot.querySelector('#csv');
     const error = this.shadowRoot.querySelector('#error');
@@ -68,10 +70,11 @@ class Data extends HTMLElement {
           map: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]]
         })
     });
+  }
 
-    mobx.autorun(() => {
-      tab.setAttribute('disabled', (state.current.score === null).toString());
-    });
+  // noinspection JSUnusedGlobalSymbols
+  disconnectedCallback() {
+    unregister();
   }
 }
 

@@ -1,24 +1,17 @@
 import { setCurrent } from '../../state/actions/current.js';
 import { setName } from '../../state/actions/score.js';
-import state from '../../state/state.js';
+import { register, unregister } from '../../state/reactions/file.js';
+import Component from '../../utils/component.js';
 
-const html = await fetch('components/file/index.html').then(r => r.text());
-const css = await fetch('components/file/style.css').then(r => r.text());
-const global = await fetch('style.css').then(r => r.text());
-
-class File extends HTMLElement {
+class File extends Component('components/file/index.html', 'components/file/style.css') {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
-
-    const style = document.createElement('style');
-    style.textContent = css + '\n' + global;
-    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  connectedCallback() {
+  connect() {
+    register(this);
+
     const button = this.shadowRoot.querySelector('button');
     const input = this.shadowRoot.querySelector('input');
 
@@ -31,10 +24,11 @@ class File extends HTMLElement {
       setName(this._id, input.value);
     });
     input.addEventListener('change', () => input.blur());
+  }
 
-    mobx.autorun(() => {
-      button.classList.toggle('selected', state.current.score === this._id);
-    });
+  // noinspection JSUnusedGlobalSymbols
+  disconnect() {
+    unregister(this);
   }
 
   get ensId() {

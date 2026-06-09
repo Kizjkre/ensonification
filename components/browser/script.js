@@ -1,6 +1,6 @@
 import '../file/script.js';
 import { resetCurrent } from '../../state/actions/current.js';
-import state from '../../state/state.js';
+import { register, unregister } from '../../state/reactions/browser.js';
 
 const html = await fetch('components/browser/index.html').then(r => r.text());
 const css = await fetch('components/browser/style.css').then(r => r.text());
@@ -22,18 +22,23 @@ class Browser extends HTMLElement {
     const div = this.shadowRoot.querySelector('div');
     div.addEventListener('click', e => e.target === div && resetCurrent());
 
-    mobx.observe(state.scores, changes => {
-      changes.added.forEach(score => {
+    register({
+      add: scores => scores.forEach(score => {
         const file = document.createElement('ens-file');
         file.ensId = score.id;
+        file.id = `file-${ score.id }`;
         div.appendChild(file);
-      });
-
-      changes.removed.forEach(score => {
-        const file = div.querySelector(`[ens-id='${ score.id }']`); // NOTE: probably doesn't work
+      }),
+      remove: score => {
+        const file = div.querySelector(`#file-${ score.id }`); // NOTE: probably doesn't work
         div.removeChild(file);
-      });
+      }
     });
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  disconnectedCallback() {
+    unregister();
   }
 }
 

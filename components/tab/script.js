@@ -1,4 +1,5 @@
 import { toggleTab } from '../../state/actions/ui.js';
+import { register, unregister } from '../../state/reactions/tab.js';
 import state from '../../state/state.js';
 
 const html = await fetch('components/tab/index.html').then(r => r.text());
@@ -41,14 +42,16 @@ class Tab extends HTMLElement {
 
   // noinspection JSUnusedGlobalSymbols
   connectedCallback() {
+    register(() => this._name, this._main);
+
     const aside = this.shadowRoot.querySelector('aside');
 
     aside.addEventListener('click', () => toggleTab(this._name));
+  }
 
-    mobx.autorun(() => {
-      // this._main.style.width = state.ui.tabs[this._name] ? 'min(calc-size(max-content, size), 20dvw)' : '0'; NOTE: not supported in all browsers: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/calc-size#browser_compatibility
-      this._main.style.width = state.ui.tabs[this._name] ? '20dvw' : '0'; // NOTE: workaround
-    });
+  // noinspection JSUnusedGlobalSymbols
+  disconnectedCallback() {
+    unregister();
   }
 
   set name(name) {
