@@ -1,11 +1,12 @@
-const html = await fetch('components/fab/index.html').then(r => r.text());
+import Component from '../../utils/component.js';
 
-class FAB extends HTMLElement {
+class FAB extends Component('components/fab/index.html', 'components/fab/style.css') {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
+  }
 
+  // noinspection JSUnusedGlobalSymbols
+  connect() {
     const button = this.shadowRoot.querySelector('button');
     const popup = this.shadowRoot.querySelector('div');
 

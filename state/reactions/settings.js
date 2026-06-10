@@ -19,7 +19,7 @@ const field = f => {
       }
       const { data } = state.scores[score];
       d = mobx.observe(data, changes => {
-        console.log(changes);
+        // console.log(changes);
       });
     }
   );

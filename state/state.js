@@ -8,7 +8,7 @@ mobx.configure({
   disableErrorBoundaries: true
 });
 
-const state ={
+const state = {
   scores: [],
   current: {
     score: null,
@@ -24,6 +24,9 @@ const state ={
       encoding: false,
       mark: false
     }
+  },
+  utils: {
+    free: []
   }
 };
 

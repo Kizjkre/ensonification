@@ -1,33 +1,22 @@
 import { toggleTab } from '../../state/actions/ui.js';
-import { register, unregister } from '../../state/reactions/tab.js';
-import state from '../../state/state.js';
+import Component from '../../utils/component.js';
 
-const html = await fetch('components/tab/index.html').then(r => r.text());
-const css = await fetch('components/tab/style.css').then(r => r.text());
-const global = await fetch('style.css').then(r => r.text());
-
-class Tab extends HTMLElement {
+class Tab extends Component('components/tab/index.html', 'components/tab/style.css') {
   static observedAttributes = ['disabled'];
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
-
-    const style = document.createElement('style');
-    style.textContent = css + '\n' + global;
-    this.shadowRoot.append(style);
 
     this._name = null;
     mobx.makeObservable(this, {
       _name: mobx.observable
     });
-
-    this._main = this.shadowRoot.querySelector('main');
   }
 
   // noinspection JSUnusedGlobalSymbols
-  attributeChangedCallback(name, _, curr) {
+  async attributeChangedCallback(name, _, curr) {
+    await this._load; // NOTE: Required to ensure shadowRoot is available, maybe change later
+
     switch (name) {
       case 'disabled':
         const section = this.shadowRoot.querySelector('section');
@@ -41,17 +30,19 @@ class Tab extends HTMLElement {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  connectedCallback() {
-    register(() => this._name, this._main);
+  connect() {
+    this._main = this.shadowRoot.querySelector('main');
+
+    this.register(
+      state => state.ui.tabs[this._name],
+      tab => {
+        this._main.style.width = tab ? '20dvw' : '0';
+      }
+    )
 
     const aside = this.shadowRoot.querySelector('aside');
 
     aside.addEventListener('click', () => toggleTab(this._name));
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  disconnectedCallback() {
-    unregister();
   }
 
   set name(name) {

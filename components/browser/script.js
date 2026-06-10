@@ -1,44 +1,36 @@
 import '../file/script.js';
 import { resetCurrent } from '../../state/actions/current.js';
-import { register, unregister } from '../../state/reactions/browser.js';
+import Component from '../../utils/component.js';
 
-const html = await fetch('components/browser/index.html').then(r => r.text());
-const css = await fetch('components/browser/style.css').then(r => r.text());
-const global = await fetch('style.css').then(r => r.text());
-
-class Browser extends HTMLElement {
+class Browser extends Component('components/browser/index.html', 'components/browser/style.css') {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
-
-    const style = document.createElement('style');
-    style.textContent = css + '\n' + global;
-    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  connectedCallback() {
+  connect() {
     const div = this.shadowRoot.querySelector('div');
     div.addEventListener('click', e => e.target === div && resetCurrent());
 
-    register({
-      add: scores => scores.forEach(score => {
-        const file = document.createElement('ens-file');
-        file.ensId = score.id;
-        file.id = `file-${ score.id }`;
-        div.appendChild(file);
-      }),
-      remove: score => {
-        const file = div.querySelector(`#file-${ score.id }`); // NOTE: probably doesn't work
-        div.removeChild(file);
-      }
-    });
-  }
+    this.register(
+      state => state.scores,
+      (scores, prev) => {
+        const added = scores?.filter(s => s !== null && !prev.includes(s));
+        const removed = prev?.filter(s => s !== null && !scores.includes(s));
 
-  // noinspection JSUnusedGlobalSymbols
-  disconnectedCallback() {
-    unregister();
+        added?.forEach(score => {
+          const file = document.createElement('ens-file');
+          file.ensId = score.id;
+          file.id = `file-${ score.id }`;
+          div.appendChild(file);
+        });
+
+        removed?.forEach(score => {
+          const file = div.querySelector(`#file-${ score.id }`);
+          div.removeChild(file);
+        });
+      }
+    );
   }
 }
 

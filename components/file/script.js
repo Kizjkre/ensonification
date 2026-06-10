@@ -1,6 +1,5 @@
 import { setCurrent } from '../../state/actions/current.js';
 import { setName } from '../../state/actions/score.js';
-import { register, unregister } from '../../state/reactions/file.js';
 import Component from '../../utils/component.js';
 
 class File extends Component('components/file/index.html', 'components/file/style.css') {
@@ -10,10 +9,13 @@ class File extends Component('components/file/index.html', 'components/file/styl
 
   // noinspection JSUnusedGlobalSymbols
   connect() {
-    register(this);
-
     const button = this.shadowRoot.querySelector('button');
     const input = this.shadowRoot.querySelector('input');
+
+    this.register(
+      state => state.current.score,
+      score => button.classList.toggle('selected', score === this._id)
+    );
 
     input.focus();
 
@@ -24,11 +26,6 @@ class File extends Component('components/file/index.html', 'components/file/styl
       setName(this._id, input.value);
     });
     input.addEventListener('change', () => input.blur());
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  disconnect() {
-    unregister(this);
   }
 
   get ensId() {

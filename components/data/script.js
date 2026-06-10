@@ -1,12 +1,8 @@
 import '../tab/script.js';
 import { addData } from '../../state/actions/score.js';
-import { register, unregister } from '../../state/reactions/data.js';
+import Component from '../../utils/component.js';
 import dropzone from '../../utils/dropzone.js';
 import { isCSV } from '../../utils/type.js';
-
-const html = await fetch('components/data/index.html').then(r => r.text());
-const css = await fetch('components/data/style.css').then(r => r.text());
-const global = await fetch('style.css').then(r => r.text());
 
 const animate = ({ from, to, map }) =>
   map.forEach(([f, t]) => gsap.to(from.children[f], {
@@ -15,19 +11,13 @@ const animate = ({ from, to, map }) =>
     ease: 'expo.inOut'
   }));
 
-class Data extends HTMLElement {
+class Data extends Component('components/data/index.html', 'components/data/style.css') {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
-
-    const style = document.createElement('style');
-    style.textContent = css + '\n' + global;
-    this.shadowRoot.append(style);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  connectedCallback() {
+  connect() {
     const label = this.shadowRoot.querySelector('label');
     const input = this.shadowRoot.querySelector('input');
     // noinspection CssInvalidHtmlTagReference
@@ -35,7 +25,13 @@ class Data extends HTMLElement {
 
     tab.name = 'data';
 
-    register(tab);
+    this.register(
+      state => state.current.score,
+      score => {
+        const disabled = (score === null) + '';
+        tab.setAttribute('disabled', disabled);
+      }
+    )
 
     const upload = this.shadowRoot.querySelector('#upload');
     const csv = this.shadowRoot.querySelector('#csv');
@@ -70,11 +66,6 @@ class Data extends HTMLElement {
           map: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]]
         })
     });
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  disconnectedCallback() {
-    unregister();
   }
 }
 

@@ -1,23 +1,25 @@
 import '../tab/script.js';
-import { register, unregister } from '../../state/reactions/parameter.js';
+import Component from '../../utils/component.js';
 
-const html = await fetch('components/parameter/index.html').then(r => r.text());
-const css = await fetch('components/parameter/style.css').then(r => r.text());
-const global = await fetch('style.css').then(r => r.text());
-
-class Parameter extends HTMLElement {
+class Parameter extends Component('components/parameter/index.html', 'components/parameter/style.css') {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = html;
 
-    const style = document.createElement('style');
-    style.textContent = css + '\n' + global;
-    this.shadowRoot.append(style);
+    this._name = null;
+    this._listener = null;
+    mobx.makeObservable(this, {
+      _name: mobx.observable
+    });
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  connect() {
+    this._div = this.shadowRoot.querySelector('div');
+    this._tab = this.shadowRoot.querySelector('ens-tab');
 
     const slot = this.shadowRoot.querySelector('slot[name=name]');
     const dups = [...this.shadowRoot.querySelectorAll(`slot[name*=name-]`)];
-    slot.addEventListener('slotchange', () => {
+    const copy = () =>
       slot.assignedNodes().forEach(node => {
         dups.forEach(duplicate => {
           const n = node.cloneNode(true);
@@ -25,31 +27,30 @@ class Parameter extends HTMLElement {
           this.append(n);
         });
       });
-    });
+    copy();
+    slot.addEventListener('slotchange', copy);
 
-    this._name = null;
-    this._listener = null;
-    mobx.makeObservable(this, {
-      _name: mobx.observable
-    });
+    this.register(
+      state => state.current.score,
+      score => {
+        const disabled = (score === null) + '';
+        this._tab.setAttribute('disabled', disabled);
+      }
+    );
 
-    this._div = this.shadowRoot.querySelector('div');
-    this._tab = this.shadowRoot.querySelector('ens-tab');
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  connectedCallback() {
-    register(this._tab);
+    mobx.reaction(
+      () => this._name,
+      name => {
+        // this.register(
+        //   state => state.
+        // );
+      }
+    );
 
     // mobx.autorun(() => {
       // Array.from(this._div.children).forEach(b => b.classList.toggle('checked', +b.value === p));
       // this._tab.style.setProperty('--indicator', p > -1 ? 'var(--text)' : 'transparent');
     // });
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  disconnectedCallback() {
-    unregister();
   }
 
   add(parameters) {
@@ -72,11 +73,17 @@ class Parameter extends HTMLElement {
 
   set name(name) {
     this._name = name;
-    this._tab.name = name;
+    this._load.then(() => {
+      this._tab.name = name;
+    });
   }
 
   set onClick(listener) {
     this._listener = listener;
+  }
+
+  set parameters(parameters) {
+    // console.log(parameters);
   }
 }
 

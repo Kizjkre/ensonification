@@ -1,8 +1,9 @@
-import state from '../state/state.js';
+import reaction, { accessors } from '../state/reaction.js';
 
 export default (html, css, global = 'style.css', Base = HTMLElement) => class extends Base {
   constructor() {
     super();
+
     this._disposers = new Set();
 
     this.attachShadow({ mode: 'open' });
@@ -37,9 +38,9 @@ export default (html, css, global = 'style.css', Base = HTMLElement) => class ex
   }
 
   register(dep, effect, options) {
-    const d = mobx.reaction(() => dep(state), effect, { firesImmediately: true, ...options });
-    this._disposers.add(d);
-    return d;
+    const disposer = reaction(dep(accessors), effect, options);
+    this._disposers.add(disposer);
+    return disposer;
   }
 
   unregister(disposer) {

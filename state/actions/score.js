@@ -6,8 +6,6 @@ import state, { data, score } from '../state.js';
 import { resetCurrent, setCurrent } from './current.js';
 import { toggleTab } from './ui.js';
 
-const free = [];
-
 export const addData = mobx.action(async files => {
   for await (const file of files) {
     const d = structuredClone(data);
@@ -22,7 +20,7 @@ export const addData = mobx.action(async files => {
 
 export const createScore = mobx.action(() => {
   const s = structuredClone(score);
-  const id = free.shift() ?? state.scores.length;
+  const id = state.utils.free.shift() ?? state.scores.length;
   s.id = id;
 
   state.scores[id] = s;
@@ -34,7 +32,7 @@ export const createScore = mobx.action(() => {
 
 export const deleteScore = mobx.action(id => {
   state.scores[id] = null;
-  free.push(id);
+  state.utils.free.push(id);
   resetCurrent();
 });
 
