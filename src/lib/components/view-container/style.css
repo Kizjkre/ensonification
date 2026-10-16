@@ -1,0 +1,9 @@
+section {
+  border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5em;
+  height: 100%;
+  overflow-x: scroll;
+  width: 100%;
+}

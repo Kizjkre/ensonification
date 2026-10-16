@@ -1,0 +1,32 @@
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #1f2937;
+    --text: white;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --primary: white;
+    --text: #1f2937;
+  }
+}
+
+:root {
+  --font-primary: 'Neuton', serif;
+  --font-secondary: 'Space Mono', monospace;
+}
+
+* {
+  color: var(--text);
+  font-family: var(--font-secondary), serif;
+}
+
+body, html {
+  background: var(--primary);
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  transition: all 100ms ease;
+  width: 100dvw;
+}

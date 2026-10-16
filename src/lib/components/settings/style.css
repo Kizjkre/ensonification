@@ -1,0 +1,55 @@
+@keyframes appear {
+  0% {
+    bottom: calc(-30dvh - max(1dvw, 1dvh));
+  }
+
+  90% {
+    bottom: 2dvh;
+  }
+
+  100% {
+    bottom: 0;
+  }
+}
+
+@keyframes disappear {
+  0% {
+    bottom: 0;
+  }
+
+  10% {
+    bottom: 2dvh;
+  }
+
+  100% {
+    bottom: calc(-30dvh - max(1dvw, 1dvh));
+  }
+}
+
+main {
+  box-sizing: border-box;
+  display: flex;
+  gap: min(1dvw, 1dvh);
+  height: 100%;
+  padding: min(1dvw, 1dvh) 2.5dvw 2.5dvh min(1dvw, 1dvh);
+  position: relative;
+  width: 100%;
+}
+
+section {
+  --bg: color-mix(in srgb, transparent 90%, var(--text) 10%);
+  --margin: min(1dvw, 1dvh);
+
+  animation: appear 300ms ease-out forwards;
+  background: var(--bg);
+  border-radius: 10px;
+  bottom: 0;
+  height: 30dvh;
+  margin: 0 var(--margin) var(--margin) var(--margin);
+  position: absolute;
+  width: calc(100vw - 2 * var(--margin));
+
+  &[data-hidden=true] {
+    animation: disappear 300ms ease-in forwards;
+  }
+}
