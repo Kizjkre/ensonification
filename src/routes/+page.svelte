@@ -2,6 +2,7 @@
   import Controls from '$lib/components/Controls.svelte';
   import Load from '$lib/components/Load.svelte';
   import Score from '$lib/components/Score.svelte';
+  import Sse from '$lib/components/SSE.svelte';
   import { init as dinit } from '$lib/state/data.svelte.js';
   import menu from '$lib/state/menu.svelte.js';
   import { init as tinit } from '$lib/state/theme.svelte.js';
@@ -26,3 +27,4 @@
     <Controls />
   </aside>
 </div>
+<Sse />

@@ -1,4 +1,5 @@
 node_modules
+local-server/*.pem
 
 # Output
 .output

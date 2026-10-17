@@ -1,4 +1,4 @@
-import { autoType, csvParse, csvParseRows } from 'd3-dsv';
+import { autoType, csvParse, csvParseRows } from 'd3';
 
 self.onmessage = event => {
   const { action, payload } = event.data;
