@@ -1,4 +1,26 @@
-import http from 'http';
+import http from 'node:http';
+import * as dgram from 'node:dgram';
+import parse from './osc.js';
+
+const clients = new Set();
+
+// UDP Server
+const UDP = 5005;
+const socket = dgram.createSocket('udp4');
+
+socket.on('message', (message, rinfo) => {
+  message = parse(message);
+  console.log(`Received message: ${ JSON.stringify(message) } from ${ rinfo.address }:${ rinfo.port }`);
+
+  clients.forEach(client => {
+    client.write(`data: ${ JSON.stringify(message) }\n\n`);
+  });
+});
+
+socket.bind(UDP, () => {
+  console.log(`UDP server listening on port ${ UDP }`);
+});
+
 
 const PORT = 4433;
 const ALLOWED_ORIGINS = [
@@ -44,18 +66,11 @@ const server = http.createServer((req, res) => {
 
     console.log(`Client streaming connected from: ${ origin }`);
 
-    // Example: Push data to client every 3 seconds
-    const intervalId = setInterval(() => {
-      const dataPayload = JSON.stringify({ message: 'Hello from local machine!', timestamp: Date.now() });
+    clients.add(res);
 
-      // SSE format requires "data: <string>\n\n"
-      res.write(`data: ${ dataPayload }\n\n`);
-    }, 3000);
-
-    // Clean up if the browser closes the tab or disconnects
     req.on('close', () => {
       console.log('Client disconnected from stream.');
-      clearInterval(intervalId);
+      clients.delete(res);
     });
     return;
   }
@@ -66,5 +81,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server started on http://localhost:${ PORT }/stream`);
+  console.log(`SSE server started on http://localhost:${ PORT }/stream`);
 });

@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.15",
-    "d3": "^7.9.0",
-    "socket.io": "^4.8.4"
+    "d3": "^7.9.0"
   }
 }
