@@ -1,26 +1,22 @@
+import { Server } from 'node-osc';
 import http from 'node:http';
-import * as dgram from 'node:dgram';
-import parse from './osc.js';
 
 const clients = new Set();
 
 // UDP Server
 const UDP = 5005;
-const socket = dgram.createSocket('udp4');
+const osc = new Server(UDP, 'localhost');
 
-socket.on('message', (message, rinfo) => {
-  message = parse(message);
-  console.log(`Received message: ${ JSON.stringify(message) } from ${ rinfo.address }:${ rinfo.port }`);
+osc.on('message', msg => {
+  const [addr, ...data] = msg;
+
+  if (addr !== '/Player') return;
+  if (data[0] !== 'state') return;
 
   clients.forEach(client => {
-    client.write(`data: ${ JSON.stringify(message) }\n\n`);
+    client.write(`data: ${ JSON.stringify(data[1]) }\n\n`); // TODO: also capture learned
   });
 });
-
-socket.bind(UDP, () => {
-  console.log(`UDP server listening on port ${ UDP }`);
-});
-
 
 const PORT = 4433;
 const ALLOWED_ORIGINS = [
