@@ -2,16 +2,17 @@
   import Controls from '$lib/components/Controls.svelte';
   import Load from '$lib/components/Load.svelte';
   import Score from '$lib/components/Score.svelte';
-  import Sse from '$lib/components/SSE.svelte';
   import { init as dinit } from '$lib/state/data.svelte.js';
   import menu from '$lib/state/menu.svelte.js';
   import { init as tinit } from '$lib/state/theme.svelte.js';
   import { handleKeydown, handleKeyUp } from '$lib/util/hotkeys.js';
   import init from '$lib/util/init.svelte.js';
+  import { init as lsinit } from '$lib/util/local-server.svelte.js';
 
   init();
   dinit();
   tinit();
+  lsinit();
 
   // NOTE: https://stackoverflow.com/questions/29032884/why-is-a-signaling-server-needed-for-webrtc
 </script>
@@ -27,4 +28,3 @@
     <Controls />
   </aside>
 </div>
-<Sse />
