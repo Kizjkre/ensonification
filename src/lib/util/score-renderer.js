@@ -22,13 +22,13 @@ void main() {
 const LINE_VERTEX_SHADER = `#version 300 es
 in vec2 a_corner;
 in vec4 a_segment;
-in float a_value;
+in vec2 a_values;
 uniform vec2 u_resolution;
 uniform float u_x_scale;
 uniform float u_x_offset;
 out vec2 v_position;
 out vec4 v_segment;
-out float v_value;
+out vec2 v_values;
 
 void main() {
   vec2 start = vec2(a_segment.x * u_x_scale + u_x_offset, a_segment.y);
@@ -36,16 +36,16 @@ void main() {
   vec2 bounds_min = min(start, end) - vec2(6.0);
   vec2 bounds_max = max(start, end) + vec2(6.0);
   v_position = bounds_min + (a_corner * 0.5 + 0.5) * (bounds_max - bounds_min);
-  v_segment = a_segment;
+  v_segment = vec4(start, end);
   vec2 clip = v_position / u_resolution * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-  v_value = a_value;
+  v_values = a_values;
 }`;
 
 const fragmentShader = ({ line = false } = {}) => `#version 300 es
 precision mediump float;
 ${line ? 'in vec2 v_position;\nin vec4 v_segment;' : ''}
-in float v_value;
+${line ? 'in vec2 v_values;' : 'in float v_value;'}
 uniform bool u_use_palette;
 uniform vec4 u_solid_color;
 uniform vec2 u_color_domain;
@@ -59,11 +59,12 @@ void main() {
   float t = length_squared == 0.0 ? 0.0 : clamp(dot(v_position - v_segment.xy, delta) / length_squared, 0.0, 1.0);
   float distance_to_line = length(v_position - (v_segment.xy + t * delta));
   if (distance_to_line > 5.0) discard;
-  float coverage = 1.0 - smoothstep(4.0, 5.0, distance_to_line);` : ''}
+  float coverage = 1.0 - smoothstep(4.0, 5.0, distance_to_line);
+  float sample_value = mix(v_values.x, v_values.y, t);` : 'float sample_value = v_value;'}
   vec4 color = u_solid_color;
   if (u_use_palette) {
     float domain_range = u_color_domain.y - u_color_domain.x;
-    float normalized = domain_range == 0.0 ? 0.0 : (v_value - u_color_domain.x) / domain_range;
+    float normalized = domain_range == 0.0 ? 0.0 : (sample_value - u_color_domain.x) / domain_range;
     float palette_position = clamp(normalized * (u_color_range.y - u_color_range.x) + u_color_range.x, 0.0, 1.0);
     color = texture(u_palette, vec2(palette_position, 0.5));
   }
@@ -152,7 +153,7 @@ export default (canvas, palette) => {
   const programs = [rectangleProgram, lineProgram].map(program => ({
     program,
     geometry: gl.getAttribLocation(program, program === rectangleProgram ? 'a_rectangle' : 'a_segment'),
-    value: gl.getAttribLocation(program, 'a_value'),
+    value: gl.getAttribLocation(program, program === lineProgram ? 'a_values' : 'a_value'),
     corner: gl.getAttribLocation(program, 'a_corner'),
     resolution: gl.getUniformLocation(program, 'u_resolution'),
     xScale: gl.getUniformLocation(program, 'u_x_scale'),
@@ -165,7 +166,7 @@ export default (canvas, palette) => {
     palette: gl.getUniformLocation(program, 'u_palette')
   }));
 
-  const createInstanceVAO = (program, cornersBuffer, geometryBuffer, valueBuffer, constantValue = null) => {
+  const createInstanceVAO = (program, cornersBuffer, geometryBuffer, valueBuffer, constantValue = null, valueSize = 1) => {
     const vao = gl.createVertexArray();
     if (!vao) throw new Error('Unable to create a WebGL vertex array.');
     gl.bindVertexArray(vao);
@@ -182,7 +183,7 @@ export default (canvas, palette) => {
     if (valueBuffer) {
       gl.bindBuffer(gl.ARRAY_BUFFER, valueBuffer);
       gl.enableVertexAttribArray(program.value);
-      gl.vertexAttribPointer(program.value, 1, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribPointer(program.value, valueSize, gl.FLOAT, false, 0, 0);
       gl.vertexAttribDivisor(program.value, 1);
     } else {
       gl.disableVertexAttribArray(program.value);
@@ -196,7 +197,7 @@ export default (canvas, palette) => {
   const rectangleVAO = createInstanceVAO(programs[0], rectangleCorners, rectangleBuffer, blockColorBuffer);
   const staffVAO = createInstanceVAO(programs[0], rectangleCorners, staffBuffer, null, 0);
   const overlayVAO = createInstanceVAO(programs[0], rectangleCorners, overlayBuffer, null, 0);
-  const lineVAO = createInstanceVAO(programs[1], lineCorners, lineBuffer, colorBuffer);
+  const lineVAO = createInstanceVAO(programs[1], lineCorners, lineBuffer, colorBuffer, null, 2);
 
   let width = 0;
   let height = 0;
@@ -365,7 +366,7 @@ export default (canvas, palette) => {
         blockGap: gap
       });
 
-      if (lineCount && lineColorCount >= lineCount) {
+      if (lineCount && lineColorCount >= lineCount * 2) {
         const program = programs[1];
         gl.useProgram(program.program);
         gl.bindVertexArray(lineVAO);

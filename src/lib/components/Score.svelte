@@ -450,8 +450,14 @@
     const instance = renderer;
     if (!instance || !file.id || !ready) return;
 
+    const lineColors = new Float32Array(color.length * 2);
+    for (let i = 0; i < color.length; i++) {
+      lineColors[i * 2] = color[i];
+      lineColors[i * 2 + 1] = color[i + 1] ?? color[i];
+    }
+
     instance.setColors(
-      Float32Array.from(color),
+      lineColors,
       Float32Array.from(blockOrder, index => color[index])
     );
     untrack(draw);
