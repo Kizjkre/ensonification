@@ -1,5 +1,6 @@
 import bpm from '$lib/state/bpm.svelte.js';
 import file from '$lib/state/file.svelte.js';
+import livePoints from '$lib/state/live-points.svelte.js';
 import server from '$lib/state/server.svelte.js';
 import status from '$lib/state/status.svelte.js';
 import Worker from '$lib/util/workers/local-server.js?worker';
@@ -18,7 +19,15 @@ export const init = () => {
       }
 
       if (event.data.type === 'data') {
-        console.log('Processed data received from worker:', event.data.data);
+        const datum = event.data.data;
+        if (!file.id || !datum || datum.y == null || datum.color == null) return;
+
+        if (livePoints.fileId !== file.id) {
+          livePoints.fileId = file.id;
+          livePoints.points = [];
+        }
+
+        livePoints.points = [...livePoints.points, { y: datum.y, color: datum.color }];
       }
     };
   });

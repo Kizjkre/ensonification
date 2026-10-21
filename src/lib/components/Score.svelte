@@ -4,6 +4,7 @@
   import colorrange from '$lib/state/colorrange.svelte.js';
   import domain from '$lib/state/domain.svelte.js';
   import file from '$lib/state/file.svelte.js';
+  import livePoints from '$lib/state/live-points.svelte.js';
   import measure from '$lib/state/measure.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import range from '$lib/state/range.svelte.js';
@@ -58,10 +59,28 @@
     if (file.id === id) ready = true;
   });
 
-  const ytransform = $derived(atoi(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []));
-  const colortransform = $derived(atoi(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []));
+  const appendedPoints = $derived(livePoints.fileId === file.id ? livePoints.points : []);
+  const yvalues = $derived([
+    ...(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []),
+    ...appendedPoints.map(d => d.y)
+  ]);
+  const colorvalues = $derived([
+    ...(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []),
+    ...appendedPoints.map(d => d.color)
+  ]);
+  const ytransform = $derived(atoi(yvalues));
+  const colortransform = $derived(atoi(colorvalues));
 
-  const xraw = $derived(xstate[file.id] !== -1 ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []).out : raw.data.map((_, i) => i));
+  const baseXraw = $derived(xstate[file.id] !== -1
+    ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []).out
+    : raw.data.map((_, i) => i));
+  const xraw = $derived.by(() => {
+    if (!appendedPoints.length) return baseXraw;
+
+    const lastX = baseXraw.reduce((maximum, value) =>
+      Number.isFinite(value) ? Math.max(maximum, value) : maximum, -1);
+    return [...baseXraw, ...appendedPoints.map((_, i) => lastX + i + 1)];
+  });
   const yraw = $derived(ytransform.out);
   const colorraw = $derived(colortransform.out);
 
@@ -81,19 +100,26 @@
     Array.from({ length: Math.min(xraw?.length, yraw?.length, colorraw?.length) }, (_, i) => i)
       .filter(i => !nulls.has(i))
   );
+  const baseXCount = $derived(new Set(
+    validIndices
+      .filter(i => i < raw.data.length)
+      .map(i => xraw[i])
+  ).size);
   const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
   const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
   const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
   const coords = $derived(x.map((d, i) => ({ x: d, y: y[i] })));
 
   const xdomain = $derived([...new Set(x)]);
-  const xpad = $derived(0.1 / 50 * (xdomain.length + 2));
+  const xpad = $derived(0.1 / 50 * ((scroll[file.id] ? baseXCount : xdomain.length) + 2));
   const xscale = $derived.by(() => {
     xdomain.sort((a, b) => a - b);
 
     return d3.scaleBand()
       .domain([xdomain[0] - 2, xdomain[0] - 1, ...xdomain])
-      .range([0, width])
+      .range([0, scroll[file.id]
+        ? width * (xdomain.length + 2) / (baseXCount + 2)
+        : width])
       .padding(xpad);
   });
   const blockOrder = $derived.by(() =>
@@ -149,12 +175,13 @@
     return coords.map((point, i) => {
       const index = validIndices[i];
       const row = raw.data[index];
+      const appended = index >= raw.data.length ? appendedPoints[index - raw.data.length] : null;
       return {
         progress: xscale(point.x) / bandwidth,
         datum: {
-          x: xColumn === -1 ? index : row[raw.columns[xColumn]],
-          y: row[raw.columns[yColumn]],
-          color: row[raw.columns[colorColumn]]
+          x: xColumn === -1 ? index : row ? row[raw.columns[xColumn]] : xraw[index],
+          y: row ? row[raw.columns[yColumn]] : appended?.y,
+          color: row ? row[raw.columns[colorColumn]] : appended?.color
         }
       };
     }).filter(point => Number.isFinite(point.progress))
