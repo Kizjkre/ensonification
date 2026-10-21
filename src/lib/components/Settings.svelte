@@ -8,6 +8,7 @@
   import color from '$lib/state/color.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
+  import server from '$lib/state/server.svelte.js';
   import scroll from '$lib/state/scroll.svelte.js';
   import { onMount } from 'svelte';
 
@@ -101,6 +102,10 @@
 <section class="gap-x-2 grid grid-cols-7 grid-rows-3">
   <div class="col-span-7 flex gap-4 justify-between">
     <h3 class="dark:text-gray-100 font-normal m-0">score settings.</h3>
+    <div class="flex items-center">
+      <div class="w-4 h-4 rounded-full mr-2" class:bg-red-400={!server.connected} class:bg-green-400={server.connected}></div>
+      <span class="text-xs">local server: {server.connected ? 'on' : 'off'}</span>
+    </div>
     <div bind:this={range} class="relative w-1/2">
       <button
         aria-label="left slider"

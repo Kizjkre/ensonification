@@ -1,5 +1,5 @@
 node_modules
-local-server/database.json
+local-server/store.json
 
 # Output
 .output

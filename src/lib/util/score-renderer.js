@@ -5,11 +5,13 @@ in float a_value;
 uniform vec2 u_resolution;
 uniform float u_x_scale;
 uniform float u_x_offset;
+uniform float u_block_gap;
 out float v_value;
 
 void main() {
+  float scaled_width = (a_rectangle.z + u_block_gap) * u_x_scale - u_block_gap;
   vec2 position = vec2(
-    (a_rectangle.x + a_corner.x * a_rectangle.z) * u_x_scale + u_x_offset,
+    a_rectangle.x * u_x_scale + a_corner.x * scaled_width + u_x_offset,
     a_rectangle.y + a_corner.y * a_rectangle.w
   );
   vec2 clip = position / u_resolution * 2.0 - 1.0;
@@ -154,6 +156,7 @@ export default (canvas, palette) => {
     resolution: gl.getUniformLocation(program, 'u_resolution'),
     xScale: gl.getUniformLocation(program, 'u_x_scale'),
     xOffset: gl.getUniformLocation(program, 'u_x_offset'),
+    blockGap: gl.getUniformLocation(program, 'u_block_gap'),
     usePalette: gl.getUniformLocation(program, 'u_use_palette'),
     solidColor: gl.getUniformLocation(program, 'u_solid_color'),
     colorDomain: gl.getUniformLocation(program, 'u_color_domain'),
@@ -213,6 +216,7 @@ export default (canvas, palette) => {
     gl.uniform2f(program.resolution, width, height);
     gl.uniform1f(program.xScale, options.xScale || 1);
     gl.uniform1f(program.xOffset, options.xOffset || 0);
+    gl.uniform1f(program.blockGap, options.blockGap || 0);
     gl.uniform1i(program.usePalette, options.usePalette ? 1 : 0);
     gl.uniform4fv(program.solidColor, options.color);
     setPaletteUniforms(program, options.domain, options.range);
@@ -264,7 +268,7 @@ export default (canvas, palette) => {
       uploadColorValues();
     },
 
-    draw({ coverColor, coverOpacity, staffColor, playheads, colorDomain, colorRange, scrollOffset, dataScale }) {
+    draw({ coverColor, coverOpacity, staffColor, playheads, colorDomain, colorRange, scrollOffset, dataScale, blockGap }) {
       if (!width || !height) return;
 
       gl.clearColor(0, 0, 0, 0);
@@ -278,7 +282,8 @@ export default (canvas, palette) => {
         domain: colorDomain,
         range: colorRange,
         xScale: 1,
-        xOffset: 0
+        xOffset: 0,
+        blockGap: 0
       });
       drawRectangles(rectangleBuffer, rectangleCount, programs[0], {
         usePalette: true,
@@ -286,7 +291,8 @@ export default (canvas, palette) => {
         domain: colorDomain,
         range: colorRange,
         xScale: dataScale || 1,
-        xOffset: scrollOffset
+        xOffset: scrollOffset,
+        blockGap: blockGap || 0
       });
 
       if (lineCount) {

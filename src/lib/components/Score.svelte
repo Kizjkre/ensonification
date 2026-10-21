@@ -8,6 +8,7 @@
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import range from '$lib/state/range.svelte.js';
   import scale from '$lib/state/scale.svelte.js';
+  import server from '$lib/state/server.svelte.js';
   import scroll from '$lib/state/scroll.svelte.js';
   import staff from '$lib/state/staff.svelte.js';
   import status from '$lib/state/status.svelte.js';
@@ -69,6 +70,10 @@
     )
   );
 
+  const validIndices = $derived(
+    Array.from({ length: Math.min(xraw?.length, yraw?.length, colorraw?.length) }, (_, i) => i)
+      .filter(i => !nulls.has(i))
+  );
   const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
   const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
   const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
@@ -109,10 +114,42 @@
 
   const colordomain = $derived(d3.extent(color || []));
   const selectedColorRange = $derived(colorrange[file.id] || { min: 0, max: 1 });
-  const colorfunc = $derived(c =>
-    d3.interpolateTurbo((c - colordomain[0]) / (colordomain[1] - colordomain[0]) * (selectedColorRange.max - selectedColorRange.min) + selectedColorRange.min));
   const dataScale = $derived(scroll[file.id] && Number.isFinite(scale[file.id]) && scale[file.id] > 0 ? scale[file.id] : 1);
-  const scrollOffset = $derived(scroll[file.id] ? width * 0.3 - (measure.value + position) * bandwidth * dataScale : 0);
+  const scrollCoordinate = progress => {
+    const xValue = xdomain[0] + progress - 2;
+    const mapped = xscale(xValue);
+    if (Number.isFinite(mapped)) return mapped;
+
+    const firstX = xdomain[0];
+    const firstMapped = xscale(firstX);
+    return Number.isFinite(firstMapped)
+      ? firstMapped + (xValue - firstX) * bandwidth
+      : progress * bandwidth;
+  };
+  const scrollOffset = $derived(scroll[file.id]
+    ? width * 0.3 + padding / 2 - scrollCoordinate(measure.value + position) * dataScale
+    : 0);
+  const playheadPoints = $derived.by(() => {
+    if (!bandwidth) return [];
+
+    const xColumn = xstate[file.id];
+    const yColumn = ystate[file.id];
+    const colorColumn = colorstate[file.id];
+
+    return coords.map((point, i) => {
+      const index = validIndices[i];
+      const row = raw.data[index];
+      return {
+        progress: xscale(point.x) / bandwidth,
+        datum: {
+          x: xColumn === -1 ? index : row[raw.columns[xColumn]],
+          y: row[raw.columns[yColumn]],
+          color: row[raw.columns[colorColumn]]
+        }
+      };
+    }).filter(point => Number.isFinite(point.progress))
+      .sort((a, b) => a.progress - b.progress);
+  });
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -221,12 +258,76 @@
   const TRANSITION_DURATION = 0;
 
   let t = -1;
+  let lastPlayheadProgress = null;
+  let lastPlayheadFileId = null;
+
+  const postDatum = async datum => {
+    if (!server.connected) return;
+
+    try {
+      const response = await fetch('http://localhost:4433/datum', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(datum)
+      });
+
+      if (!response.ok) {
+        throw new Error(`POST /datum failed with status ${response.status}.`);
+      }
+    } catch (error) {
+      console.error('Unable to send score datum to the local server:', error);
+    }
+  };
+
+  const notifyCrossedPoints = currentProgress => {
+    if (lastPlayheadFileId !== file.id) {
+      lastPlayheadFileId = file.id;
+      lastPlayheadProgress = null;
+    }
+
+    if (lastPlayheadProgress === null) {
+      const epsilon = Math.max(1, Math.abs(currentProgress)) * Number.EPSILON * 4;
+      lastPlayheadProgress = currentProgress - epsilon;
+    }
+
+    if (currentProgress < lastPlayheadProgress) {
+      lastPlayheadProgress = currentProgress;
+      return;
+    }
+
+    let low = 0;
+    let high = playheadPoints.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (playheadPoints[middle].progress <= lastPlayheadProgress) low = middle + 1;
+      else high = middle;
+    }
+
+    for (let i = low; i < playheadPoints.length && playheadPoints[i].progress <= currentProgress; i++) {
+      void postDatum(playheadPoints[i].datum);
+    }
+
+    lastPlayheadProgress = currentProgress;
+  };
+
   const start = () => {
     t === -1 && (t = audio.ctx.currentTime);
     audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure.value++;
     position = ((audio.ctx.currentTime - t) * bpm[file.id] / 60) % 1;
+    const progress = scroll[file.id]
+      ? scrollCoordinate(measure.value + position) / bandwidth
+      : measure.value + position;
+    notifyCrossedPoints(progress);
     status.playing && requestAnimationFrame(start);
-    !status.playing && (t = -1) && (measure.value = (position = 0));
+    if (!status.playing) {
+      t = -1;
+      measure.value = 0;
+      position = 0;
+      lastPlayheadProgress = null;
+    }
   };
 
   $effect(async () => {
@@ -311,10 +412,10 @@
 
     const fixedPlayhead = width * 0.3;
     const measurePlayhead = scroll[file.id]
-      ? fixedPlayhead - position * bandwidth * dataScale
+      ? fixedPlayhead - padding / 2 - position * bandwidth * dataScale
       : measure.value * bandwidth;
     const positionPlayhead = scroll[file.id]
-      ? fixedPlayhead
+      ? fixedPlayhead - padding / 2
       : (measure.value + position) * bandwidth;
     const playheads = new Float32Array([
       measurePlayhead, 0, padding, height,
@@ -329,7 +430,8 @@
       colorDomain: colordomain[0] == null ? [0, 1] : colordomain,
       colorRange: [selectedColorRange.min, selectedColorRange.max],
       scrollOffset,
-      dataScale: scroll[file.id] ? dataScale : 1
+      dataScale: scroll[file.id] ? dataScale : 1,
+      blockGap: scroll[file.id] ? padding : 0
     });
   };
 

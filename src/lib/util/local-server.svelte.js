@@ -1,5 +1,6 @@
 import bpm from '$lib/state/bpm.svelte.js';
 import file from '$lib/state/file.svelte.js';
+import server from '$lib/state/server.svelte.js';
 import status from '$lib/state/status.svelte.js';
 import Worker from '$lib/util/workers/local-server.js?worker';
 import { onMount } from 'svelte';
@@ -11,15 +12,21 @@ export const init = () => {
     worker = new Worker();
 
     worker.onmessage = event => {
-      const data = event.data;
-      console.log('Processed data received from worker:', data);
+      if (event.data.type === 'connection') {
+        server.connected = event.data.connected;
+        return;
+      }
+
+      if (event.data.type === 'data') {
+        console.log('Processed data received from worker:', event.data.data);
+      }
     };
   });
 };
 
 $effect.root(() => {
   $effect(() => {
-    if (!status.playing) return;
+    if (!status.playing || !server.connected) return;
 
     worker.postMessage(['bpm', bpm[file.id]]);
   });

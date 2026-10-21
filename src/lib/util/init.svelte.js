@@ -8,6 +8,7 @@ import matrix from '$lib/state/matrix.svelte.js';
 import menu from '$lib/state/menu.svelte.js';
 import mode from '$lib/state/mode.svelte.js';
 import samples from '$lib/state/samples.svelte.js';
+import scale from '$lib/state/scale.svelte.js';
 import staff from '$lib/state/staff.svelte.js';
 import x from '$lib/state/x.svelte.js';
 import y from '$lib/state/y.svelte.js';
@@ -25,6 +26,7 @@ export default () => onMount(() => {
   Object.assign(menu, get('menu'));
   Object.assign(mode, get('mode'));
   Object.assign(samples, get('samples'));
+  Object.assign(scale, get('scale'));
   Object.assign(staff, get('staff'));
   Object.assign(x, get('x'));
   Object.assign(y, get('y'));

@@ -1,9 +1,13 @@
 const source = new EventSource('http://localhost:4433/stream');
 
+source.onopen = () => self.postMessage({ type: 'connection', connected: true });
+source.onerror = () => self.postMessage({ type: 'connection', connected: false });
+
 source.onmessage = event => {
+  self.postMessage({ type: 'connection', connected: true });
   const raw = JSON.parse(event.data);
   const data = raw; // TODO: process data
-  self.postMessage(data);
+  self.postMessage({ type: 'data', data });
 };
 
 self.onmessage = event => {

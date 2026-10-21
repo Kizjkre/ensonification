@@ -3,6 +3,7 @@ import color from '$lib/state/color.svelte.js';
 import colorrange from '$lib/state/colorrange.svelte.js';
 import file from '$lib/state/file.svelte.js';
 import mode from '$lib/state/mode.svelte.js';
+import scale from '$lib/state/scale.svelte.js';
 import staff from '$lib/state/staff.svelte.js';
 import x from '$lib/state/x.svelte.js';
 import y from '$lib/state/y.svelte.js';
@@ -34,6 +35,7 @@ export const remove = id => {
   delete color[id];
   delete colorrange[id];
   delete mode[id];
+  delete scale[id];
   delete staff[id];
   delete x[id];
   delete y[id];
