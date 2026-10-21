@@ -2,36 +2,27 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'node-osc';
 import http from 'node:http';
-import { read, write } from './database.js';
+import { learn, current, ACTIONS } from './store.js';
 
 const clients = new Set();
-const current = {
-  x: null,
-  y: null,
-  color: null
-};
-let bpm = -1;
+
+let state = null;
 
 // UDP Server
 const UDP = 5005;
 const osc = new Server(UDP, 'localhost');
-const allowed = new Set(['state', 'learned']);
 
 osc.on('message', msg => {
   const [addr, ...data] = msg;
 
   if (addr !== '/Player') return;
-  if (!allowed.has(data[0])) return;
 
   switch (data[0]) {
-    case 'state':
-      const db = read();
-      clients.forEach(client => {
-        client.write(`data: ${ JSON.stringify(db) }\n\n`);
-      });
+    case ACTIONS.GENERATE: // NOTE: generation
+      state = data[1];
       break;
-    case 'learned':
-      write(current.x, current.y, current.color, data[1]);
+    case ACTIONS.LEARN: // NOTE: training
+      learn(current.x, current.y, current.color, data[1]);
       break;
   }
 });
@@ -110,13 +101,26 @@ app.post('/datum', (req, res) => {
 });
 
 app.post('/bpm', (req, res) => {
-  const data = JSON.parse(req.body).payload;
+  const data = req.body.payload;
 
   if (!data || isNaN(data)) {
     return res.status(400).json({ error: 'Invalid data' });
   }
 
-  bpm = data;
+  current.bpm = data;
+
+  res.json({
+    success: true,
+    received: req.body
+  });
+});
+
+app.post('/action', (req, res) => {
+  const data = req.body.payload;
+
+  // TODO; validation
+
+  current.action = data;
 
   res.json({
     success: true,

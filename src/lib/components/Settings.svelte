@@ -8,6 +8,7 @@
   import color from '$lib/state/color.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
+  import scroll from '$lib/state/scroll.svelte.js';
   import { onMount } from 'svelte';
 
   let left = $state(null), right = $state(null), range;
@@ -97,8 +98,8 @@
   onmouseup={handleMouseup}
 ></svelte:document>
 
-<section class="gap-x-2 grid grid-cols-6 grid-rows-3">
-  <div class="col-span-6 flex gap-4 justify-between">
+<section class="gap-x-2 grid grid-cols-7 grid-rows-3">
+  <div class="col-span-7 flex gap-4 justify-between">
     <h3 class="dark:text-gray-100 font-normal m-0">score settings.</h3>
     <div bind:this={range} class="relative w-1/2">
       <button
@@ -169,6 +170,13 @@
       <label class="px-2" for="staff">staff</label>
       <input bind:value={staff[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" id="staff" max="20" min="1" type="number">
     </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="scroll">scroll</label>
+      <select bind:value={scroll[file.id]} class="border-2 border-gray-100 dark:bg-gray-800 px-2 rounded" onchange={handleBlur} id="scroll">
+        <option value={true}>enabled</option>
+        <option value={false}>disabled</option>
+      </select>
+    </div>
   {:else}
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="x">x-axis</label>
@@ -201,6 +209,12 @@
     <div class="flex flex-col row-span-2">
       <label class="px-2" for="staff">staff</label>
       <input class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="staff" max="20" min="1" placeholder="select a dataset" type="number">
+    </div>
+    <div class="flex flex-col row-span-2">
+      <label class="px-2" for="scroll">scroll</label>
+      <select class="border-2 border-gray-100 cursor-not-allowed dark:bg-gray-800 px-2 rounded" disabled id="scroll">
+        <option value="0">select a dataset</option>
+      </select>
     </div>
   {/if}
 </section>

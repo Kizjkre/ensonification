@@ -7,24 +7,34 @@
   import measure from '$lib/state/measure.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import range from '$lib/state/range.svelte.js';
+  import scale from '$lib/state/scale.svelte.js';
+  import scroll from '$lib/state/scroll.svelte.js';
   import staff from '$lib/state/staff.svelte.js';
   import status from '$lib/state/status.svelte.js';
   import xstate from '$lib/state/x.svelte.js';
   import ystate from '$lib/state/y.svelte.js';
   import atoi from '$lib/util/atoi.js';
+  import createScoreRenderer from '$lib/util/score-renderer.js';
   import * as d3 from 'd3';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
 
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  let div = $state(null);
+  let container = $state(null);
+  let canvas = $state(null);
+  let backgroundSample = $state(null);
+  let staffColorSample = $state(null);
+  let renderer = $state(null);
+  let renderError = $state(null);
+  let backgroundColor = [1, 1, 1, 1];
+  let staffColor = [0.8, 0.8, 0.8, 1];
 
   let height = $state(0);
   let width = $state(0);
-
   let position = $state(0);
-
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  let coverOpacity = $state(1);
+  let colorSchemeVersion = $state(0);
+  let dragging = $state(false);
+  let dragStartX = 0;
+  let dragStartScale = 1;
 
   let read = $state(null);
   let raw = $state({ data: [], columns: [] });
@@ -98,12 +108,65 @@
   const ymin = 2;
 
   const colordomain = $derived(d3.extent(color || []));
+  const selectedColorRange = $derived(colorrange[file.id] || { min: 0, max: 1 });
   const colorfunc = $derived(c =>
-    d3.interpolateTurbo((c - colordomain[0]) / (colordomain[1] - colordomain[0]) * (colorrange[file.id].max - colorrange[file.id].min) + colorrange[file.id].min));
+    d3.interpolateTurbo((c - colordomain[0]) / (colordomain[1] - colordomain[0]) * (selectedColorRange.max - selectedColorRange.min) + selectedColorRange.min));
+  const dataScale = $derived(scroll[file.id] && Number.isFinite(scale[file.id]) && scale[file.id] > 0 ? scale[file.id] : 1);
+  const scrollOffset = $derived(scroll[file.id] ? width * 0.3 - (measure.value + position) * bandwidth * dataScale : 0);
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  onMount(() => new ResizeObserver(handleResize).observe(div));
+  const colorComponents = value => {
+    const parsed = d3.color(value);
+    return parsed
+      ? [parsed.r / 255, parsed.g / 255, parsed.b / 255, parsed.opacity]
+      : [0, 0, 0, 0];
+  };
+
+  const palette = new Uint8Array(256 * 4);
+  for (let i = 0; i < 256; i++) {
+    const color = d3.color(d3.interpolateTurbo(i / 255));
+    palette.set([color.r, color.g, color.b, 255], i * 4);
+  }
+
+  const handleResize = () => {
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    height = rect.height;
+    width = rect.width;
+    renderer?.resize(width, height, window.devicePixelRatio || 1);
+  };
+
+  onMount(() => {
+    const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateThemeColors = () => {
+      backgroundColor = colorComponents(getComputedStyle(backgroundSample).backgroundColor);
+      staffColor = colorComponents(getComputedStyle(staffColorSample).backgroundColor);
+      colorSchemeVersion++;
+    };
+    const handleColorSchemeChange = () => updateThemeColors();
+    colorScheme.addEventListener('change', handleColorSchemeChange);
+
+    let observer;
+    try {
+      renderer = createScoreRenderer(canvas, palette);
+      updateThemeColors();
+      handleResize();
+      observer = new ResizeObserver(handleResize);
+      observer.observe(container);
+    } catch (error) {
+      renderError = error instanceof Error ? error.message : String(error);
+    }
+
+    return () => {
+      observer?.disconnect();
+      colorScheme.removeEventListener('change', handleColorSchemeChange);
+      renderer?.destroy();
+    };
+  });
+
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   const handleKeyDown = e => {
     if (!file.id) return;
@@ -127,13 +190,27 @@
     }
   };
 
-  const handleResize = () => {
-    if (!div) return;
+  const handlePointerDown = event => {
+    if (!scroll[file.id] || event.button !== 0) return;
 
-    const rect = div.getBoundingClientRect();
+    event.preventDefault();
+    dragging = true;
+    dragStartX = event.clientX;
+    dragStartScale = dataScale;
+    canvas.setPointerCapture(event.pointerId);
+  };
 
-    height = rect.height;
-    width = rect.width;
+  const handlePointerMove = event => {
+    if (!dragging || !width) return;
+
+    scale[file.id] = Math.min(
+      100,
+      Math.max(0.05, dragStartScale * Math.exp((event.clientX - dragStartX) / width))
+    );
+  };
+
+  const handlePointerUp = () => {
+    dragging = false;
   };
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,91 +236,134 @@
     }
   });
 
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  let fragment;
-  onMount(() => fragment = document.createDocumentFragment());
-
-  let g;
-  let points = $state([]);
   $effect(() => {
-    if (!points.length || !color.length) return;
-
-    switch (mode[file.id]) {
-      case MODE.BLOCK:
-        color.forEach((c, i) => points[i].setAttribute('fill', colorfunc(c)));
-        break;
-      case MODE.LINE:
-        color.forEach((c, i) => points[i].setAttribute('stroke', colorfunc(c)));
-        break;
-
+    if (!ready) {
+      coverOpacity = 1;
+      return;
     }
+
+    const initialOpacity = untrack(() => coverOpacity);
+    const startTime = performance.now();
+    let frame;
+    const animate = now => {
+      const progress = Math.min((now - startTime) / 750, 1);
+      coverOpacity = initialOpacity * (1 - progress);
+      if (progress < 1) frame = requestAnimationFrame(animate);
+    };
+
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
   });
 
   $effect(() => {
-    if (!coords || !fragment || !g || !ready) return;
+    const instance = renderer;
+    if (!instance || !ready || !width || !height) return;
 
-    const temp = [];
+    const lineMode = mode[file.id] === MODE.LINE;
+    const staffCount = staff[file.id];
+    const staffRects = new Float32Array(Math.max(0, staffCount - 1) * 4);
+    const rectangles = new Float32Array(lineMode ? 0 : coords.length * 4);
+    const lines = new Float32Array(lineMode ? coords.length * 4 : 0);
 
-    switch (mode[file.id]) {
-      case MODE.BLOCK:
-        coords.forEach(({ x, y }) => {
-          const width = xscale.bandwidth();
-          const height = yscale.bandwidth();
-
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rect.setAttribute('height', height < ymin ? ymin : height);
-          rect.setAttribute('width', width < xmin ? xmin : width);
-          rect.setAttribute('x', xscale(x) - +(width < 5) * xmin / 2);
-          rect.setAttribute('y', yscale(y) - +(height < 2) * ymin / 2);
-          fragment.appendChild(rect);
-
-          temp.push(rect);
-        });
-        break;
-      case MODE.LINE:
-        coords.forEach(({ x, y }, i) => {
-          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('stroke-linecap', 'round');
-          line.setAttribute('stroke-width', '10');
-          line.setAttribute('x1', xscale(x));
-          line.setAttribute('x2', xscale(i + 1 >= coords.length ? x : coords[i + 1].x));
-          line.setAttribute('y1', yscale(y));
-          line.setAttribute('y2', yscale(i + 1 >= coords.length ? y : coords[i + 1].y));
-          fragment.appendChild(line);
-
-          temp.push(line);
-        });
-        break;
+    for (let i = 1; i < staffCount; i++) {
+      const offset = (i - 1) * 4;
+      staffRects.set([0, height / staffCount * i - 2.5, width, 5], offset);
     }
 
-    points = temp;
+    if (lineMode) {
+      for (let i = 0; i < coords.length; i++) {
+        const current = coords[i];
+        const next = coords[i + 1] || current;
+        const offset = i * 4;
+        lines.set([
+          xscale(current.x), yscale(current.y),
+          xscale(next.x), yscale(next.y)
+        ], offset);
+      }
+    } else {
+      coords.forEach(({ x, y }, i) => {
+        const offset = i * 4;
+        const rectWidth = xscale.bandwidth();
+        const rectHeight = yscale.bandwidth();
+        rectangles.set([
+          xscale(x) - +(rectWidth < xmin) * xmin / 2,
+          yscale(y) - +(rectHeight < ymin) * ymin / 2,
+          rectWidth < xmin ? xmin : rectWidth,
+          rectHeight < ymin ? ymin : rectHeight
+        ], offset);
+      });
+    }
 
-    g.replaceChildren(fragment);
+    instance.setGeometry(staffRects, rectangles, lines);
+    untrack(draw);
+  });
+
+  $effect(() => {
+    const instance = renderer;
+    if (!instance || !ready) return;
+
+    instance.setColors(Float32Array.from(color));
+    untrack(draw);
+  });
+
+  const draw = () => {
+    if (!renderer) return;
+
+    const fixedPlayhead = width * 0.3;
+    const measurePlayhead = scroll[file.id]
+      ? fixedPlayhead - position * bandwidth * dataScale
+      : measure.value * bandwidth;
+    const positionPlayhead = scroll[file.id]
+      ? fixedPlayhead
+      : (measure.value + position) * bandwidth;
+    const playheads = new Float32Array([
+      measurePlayhead, 0, padding, height,
+      positionPlayhead, 0, padding, height
+    ]);
+
+    renderer.draw({
+      coverColor: backgroundColor,
+      coverOpacity,
+      staffColor,
+      playheads,
+      colorDomain: colordomain[0] == null ? [0, 1] : colordomain,
+      colorRange: [selectedColorRange.min, selectedColorRange.max],
+      scrollOffset,
+      dataScale: scroll[file.id] ? dataScale : 1
+    });
+  };
+
+  $effect(() => {
+    colorSchemeVersion;
+    measure.value;
+    position;
+    scroll[file.id];
+    scale[file.id];
+    width;
+    height;
+    draw();
   });
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onresize={handleResize} />
 
-<div bind:this={div} class="h-full">
-  <svg {height} {width}>
-    <g>
-      {#each Array(staff[file.id]).fill() as _, i (i)}
-        {#if i > 0 && ready}
-          <line
-            class="dark:stroke-gray-700 stroke-gray-300"
-            stroke-width="5"
-            x1="0"
-            x2={width}
-            y1={height / staff[file.id] * i}
-            y2={height / staff[file.id] * i}
-          ></line>
-        {/if}
-      {/each}
-    </g>
-    <g bind:this={g}></g>
-    <rect class="dark:fill-gray-800 duration-750 fill-white transition" class:opacity-0={ready} {height} {width} x="0" y="0"></rect>
-    <rect class="fill-red-400" {height} width={padding} x={measure.value * bandwidth} y="0"></rect>
-    <rect class="fill-red-400/50" {height} width={padding} x={(measure.value + position) * bandwidth} y="0"></rect>
-  </svg>
+<div bind:this={container} class="relative h-full overflow-hidden">
+  <canvas
+    bind:this={canvas}
+    class="block h-full w-full"
+    class:cursor-ew-resize={scroll[file.id] && !dragging}
+    class:cursor-grabbing={dragging}
+    onpointerdown={handlePointerDown}
+    onpointermove={handlePointerMove}
+    onpointerup={handlePointerUp}
+    onpointercancel={handlePointerUp}
+    onlostpointercapture={handlePointerUp}
+  ></canvas>
+  <div bind:this={backgroundSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-white opacity-0 dark:bg-gray-800"></div>
+  <div bind:this={staffColorSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-gray-300 opacity-0 dark:bg-gray-700"></div>
+  {#if renderError}
+    <div role="alert" class="absolute inset-0 grid place-items-center bg-white p-4 text-center text-red-600 dark:bg-gray-800">
+      Unable to render the score: {renderError}
+    </div>
+  {/if}
 </div>

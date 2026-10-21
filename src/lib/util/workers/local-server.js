@@ -7,7 +7,6 @@ source.onmessage = event => {
 };
 
 self.onmessage = event => {
-  console.log(event.data);
   fetch(`http://localhost:4433/${event.data[0]}`, {
     method: 'POST',
     headers: {
