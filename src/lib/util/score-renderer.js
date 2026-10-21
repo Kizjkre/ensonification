@@ -137,7 +137,8 @@ export default (canvas, palette) => {
   const rectangleBuffer = createBuffer(gl, new Float32Array(), gl.DYNAMIC_DRAW);
   const lineBuffer = createBuffer(gl, new Float32Array(), gl.DYNAMIC_DRAW);
   const colorBuffer = createBuffer(gl, new Float32Array(2), gl.DYNAMIC_DRAW);
-  const overlayBuffer = createBuffer(gl, new Float32Array(), gl.DYNAMIC_DRAW);
+  const blockColorBuffer = createBuffer(gl, new Float32Array(2), gl.DYNAMIC_DRAW);
+  const overlayBuffer = createBuffer(gl, new Float32Array(4), gl.DYNAMIC_DRAW);
   const paletteTexture = gl.createTexture();
   if (!paletteTexture) throw new Error('Unable to create the color palette texture.');
   gl.activeTexture(gl.TEXTURE0);
@@ -164,42 +165,59 @@ export default (canvas, palette) => {
     palette: gl.getUniformLocation(program, 'u_palette')
   }));
 
+  const createInstanceVAO = (program, cornersBuffer, geometryBuffer, valueBuffer, constantValue = null) => {
+    const vao = gl.createVertexArray();
+    if (!vao) throw new Error('Unable to create a WebGL vertex array.');
+    gl.bindVertexArray(vao);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, cornersBuffer);
+    gl.enableVertexAttribArray(program.corner);
+    gl.vertexAttribPointer(program.corner, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer);
+    gl.enableVertexAttribArray(program.geometry);
+    gl.vertexAttribPointer(program.geometry, 4, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(program.geometry, 1);
+
+    if (valueBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, valueBuffer);
+      gl.enableVertexAttribArray(program.value);
+      gl.vertexAttribPointer(program.value, 1, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribDivisor(program.value, 1);
+    } else {
+      gl.disableVertexAttribArray(program.value);
+      gl.vertexAttrib1f(program.value, constantValue);
+    }
+
+    gl.bindVertexArray(null);
+    return vao;
+  };
+
+  const rectangleVAO = createInstanceVAO(programs[0], rectangleCorners, rectangleBuffer, blockColorBuffer);
+  const staffVAO = createInstanceVAO(programs[0], rectangleCorners, staffBuffer, null, 0);
+  const overlayVAO = createInstanceVAO(programs[0], rectangleCorners, overlayBuffer, null, 0);
+  const lineVAO = createInstanceVAO(programs[1], lineCorners, lineBuffer, colorBuffer);
+
   let width = 0;
   let height = 0;
   let staffCount = 0;
   let rectangleCount = 0;
   let lineCount = 0;
-  let colorValues = new Float32Array(2);
+  let rectangles = new Float32Array();
+  let maxRectangleWidth = 0;
+  let blockColorCount = 0;
+  let lineColorCount = 0;
 
-  const uploadColorValues = () => {
-    const requiredLength = Math.max(2, staffCount, rectangleCount, lineCount, colorValues.length);
-    if (colorValues.length < requiredLength) {
-      const values = new Float32Array(requiredLength);
-      values.set(colorValues);
-      colorValues = values;
+  const uploadColorValues = (buffer, values, minimumLength = 2) => {
+    if (values.length < minimumLength) {
+      const padded = new Float32Array(minimumLength);
+      padded.set(values);
+      values = padded;
     }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, colorValues, gl.DYNAMIC_DRAW);
-  };
-
-  const setGeometryAttribute = (program, buffer, location) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(location, 1);
-  };
-
-  const setCommonAttributes = (program, corners, geometryBuffer, geometryLocation) => {
-    gl.bindBuffer(gl.ARRAY_BUFFER, corners);
-    gl.enableVertexAttribArray(program.corner);
-    gl.vertexAttribPointer(program.corner, 2, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(program.corner, 0);
-    setGeometryAttribute(program, geometryBuffer, geometryLocation);
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.enableVertexAttribArray(program.value);
-    gl.vertexAttribPointer(program.value, 1, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(program.value, 1);
+    gl.bufferData(gl.ARRAY_BUFFER, values, gl.DYNAMIC_DRAW);
+    return values;
   };
 
   const setPaletteUniforms = (program, domain, colorRange) => {
@@ -208,11 +226,11 @@ export default (canvas, palette) => {
     gl.uniform1i(program.palette, 0);
   };
 
-  const drawRectangles = (geometryBuffer, count, program, options) => {
+  const drawRectangles = (vao, count, program, options) => {
     if (!count) return;
 
     gl.useProgram(program.program);
-    setCommonAttributes(program, rectangleCorners, geometryBuffer, program.geometry);
+    gl.bindVertexArray(vao);
     gl.uniform2f(program.resolution, width, height);
     gl.uniform1f(program.xScale, options.xScale || 1);
     gl.uniform1f(program.xOffset, options.xOffset || 0);
@@ -223,15 +241,44 @@ export default (canvas, palette) => {
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
   };
 
-  const uploadAndDrawRectangles = (data, count, color) => {
+  const uploadAndDrawOverlay = (rectangle, color) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, overlayBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-    drawRectangles(overlayBuffer, count, programs[0], {
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, Float32Array.from(rectangle));
+    drawRectangles(overlayVAO, 1, programs[0], {
       usePalette: false,
       color,
       domain: [0, 1],
-      range: [0, 1]
+      range: [0, 1],
+      xScale: 1,
+      xOffset: 0,
+      blockGap: 0
     });
+  };
+
+  const visibleRectangleRange = (offset, xScale, blockGap) => {
+    if (!rectangleCount || !xScale) return [0, 0];
+
+    const minX = (-offset - maxRectangleWidth * xScale - Math.abs(blockGap * (xScale - 1))) / xScale;
+    const maxX = (width - offset) / xScale;
+    let low = 0;
+    let high = rectangleCount;
+
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (rectangles[middle * 4] < minX) low = middle + 1;
+      else high = middle;
+    }
+    const first = low;
+
+    low = first;
+    high = rectangleCount;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (rectangles[middle * 4] <= maxX) low = middle + 1;
+      else high = middle;
+    }
+
+    return [first, low];
   };
 
   return {
@@ -249,23 +296,34 @@ export default (canvas, palette) => {
       gl.viewport(0, 0, pixelWidth, pixelHeight);
     },
 
-    setGeometry(staff, rectangles, lines) {
+    clear() {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    },
+
+    setGeometry(staff, rectangleData, lines) {
       staffCount = staff.length / 4;
-      rectangleCount = rectangles.length / 4;
+      rectangles = rectangleData;
+      rectangleCount = rectangleData.length / 4;
       lineCount = lines.length / 4;
 
       gl.bindBuffer(gl.ARRAY_BUFFER, staffBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, staff, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, rectangleBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, rectangles, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, rectangleData, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, lines, gl.DYNAMIC_DRAW);
-      uploadColorValues();
+      maxRectangleWidth = 0;
+      for (let i = 0; i < rectangleCount; i++) {
+        maxRectangleWidth = Math.max(maxRectangleWidth, rectangleData[i * 4 + 2]);
+      }
     },
 
-    setColors(values) {
-      colorValues = values;
-      uploadColorValues();
+    setColors(values, blockValues) {
+      lineColorCount = values.length;
+      blockColorCount = blockValues.length;
+      uploadColorValues(colorBuffer, values);
+      uploadColorValues(blockColorBuffer, blockValues);
     },
 
     draw({ coverColor, coverOpacity, staffColor, playheads, colorDomain, colorRange, scrollOffset, dataScale, blockGap }) {
@@ -276,7 +334,7 @@ export default (canvas, palette) => {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-      drawRectangles(staffBuffer, staffCount, programs[0], {
+      drawRectangles(staffVAO, staffCount, programs[0], {
         usePalette: false,
         color: staffColor,
         domain: colorDomain,
@@ -285,20 +343,32 @@ export default (canvas, palette) => {
         xOffset: 0,
         blockGap: 0
       });
-      drawRectangles(rectangleBuffer, rectangleCount, programs[0], {
+      const rectangleScale = dataScale || 1;
+      const rectangleOffset = scrollOffset || 0;
+      const gap = blockGap || 0;
+      const [firstRectangle, afterLastRectangle] = visibleRectangleRange(rectangleOffset, rectangleScale, gap);
+      const visibleRectangleCount = afterLastRectangle - firstRectangle;
+      if (visibleRectangleCount > 0 && blockColorCount >= rectangleCount) {
+        gl.bindVertexArray(rectangleVAO);
+        gl.bindBuffer(gl.ARRAY_BUFFER, rectangleBuffer);
+        gl.vertexAttribPointer(programs[0].geometry, 4, gl.FLOAT, false, 0, firstRectangle * 4 * Float32Array.BYTES_PER_ELEMENT);
+        gl.bindBuffer(gl.ARRAY_BUFFER, blockColorBuffer);
+        gl.vertexAttribPointer(programs[0].value, 1, gl.FLOAT, false, 0, firstRectangle * Float32Array.BYTES_PER_ELEMENT);
+      }
+      drawRectangles(rectangleVAO, blockColorCount >= rectangleCount ? visibleRectangleCount : 0, programs[0], {
         usePalette: true,
         color: [1, 1, 1, 1],
         domain: colorDomain,
         range: colorRange,
-        xScale: dataScale || 1,
-        xOffset: scrollOffset,
-        blockGap: blockGap || 0
+        xScale: rectangleScale,
+        xOffset: rectangleOffset,
+        blockGap: gap
       });
 
-      if (lineCount) {
+      if (lineCount && lineColorCount >= lineCount) {
         const program = programs[1];
         gl.useProgram(program.program);
-        setCommonAttributes(program, lineCorners, lineBuffer, program.geometry);
+        gl.bindVertexArray(lineVAO);
         gl.uniform2f(program.resolution, width, height);
         gl.uniform1f(program.xScale, dataScale || 1);
         gl.uniform1f(program.xOffset, scrollOffset || 0);
@@ -309,13 +379,13 @@ export default (canvas, palette) => {
       }
 
       if (coverOpacity > 0) {
-        uploadAndDrawRectangles(new Float32Array([0, 0, width, height]), 1, [
+        uploadAndDrawOverlay([0, 0, width, height], [
           coverColor[0], coverColor[1], coverColor[2], coverOpacity
         ]);
       }
 
-      uploadAndDrawRectangles(playheads.subarray(0, 4), 1, [248 / 255, 113 / 255, 113 / 255, 1]);
-      uploadAndDrawRectangles(playheads.subarray(4, 8), 1, [248 / 255, 113 / 255, 113 / 255, 0.5]);
+      uploadAndDrawOverlay(playheads.subarray(0, 4), [248 / 255, 113 / 255, 113 / 255, 1]);
+      uploadAndDrawOverlay(playheads.subarray(4, 8), [248 / 255, 113 / 255, 113 / 255, 0.5]);
     },
 
     destroy() {
@@ -325,7 +395,12 @@ export default (canvas, palette) => {
       gl.deleteBuffer(rectangleBuffer);
       gl.deleteBuffer(lineBuffer);
       gl.deleteBuffer(colorBuffer);
+      gl.deleteBuffer(blockColorBuffer);
       gl.deleteBuffer(overlayBuffer);
+      gl.deleteVertexArray(rectangleVAO);
+      gl.deleteVertexArray(staffVAO);
+      gl.deleteVertexArray(overlayVAO);
+      gl.deleteVertexArray(lineVAO);
       gl.deleteTexture(paletteTexture);
       gl.deleteProgram(rectangleProgram);
       gl.deleteProgram(lineProgram);

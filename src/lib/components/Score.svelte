@@ -43,12 +43,19 @@
   onMount(async () => read = (await import('$lib/util/data.js')).read);
 
   $effect(async () => {
-    if (!read || !file.id) return;
+    const id = file.id;
+    if (!read || !id) {
+      ready = false;
+      raw = { data: [], columns: [] };
+      return;
+    }
 
     ready = false;
-    raw = await read(file.id);
+    const next = await read(id);
+    if (file.id !== id) return;
+    raw = next;
     await new Promise(r => setTimeout(r, 10));
-    ready = true;
+    if (file.id === id) ready = true;
   });
 
   const ytransform = $derived(atoi(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []));
@@ -89,6 +96,9 @@
       .range([0, width])
       .padding(xpad);
   });
+  const blockOrder = $derived.by(() =>
+    coords.map((_, i) => i).sort((a, b) => xscale(coords[a].x) - xscale(coords[b].x))
+  );
   const xmin = 5;
   const bandwidth = $derived(xscale.bandwidth() === 0 ? width / (xdomain.length + 2) : xscale.bandwidth() / (1 - xpad));
   const padding = $derived.by(() => {
@@ -314,6 +324,15 @@
   };
 
   const start = () => {
+    if (!file.id) {
+      t = -1;
+      measure.value = 0;
+      position = 0;
+      lastPlayheadProgress = null;
+      renderer?.clear();
+      return;
+    }
+
     t === -1 && (t = audio.ctx.currentTime);
     audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure.value++;
     position = ((audio.ctx.currentTime - t) * bpm[file.id] / 60) % 1;
@@ -358,7 +377,7 @@
 
   $effect(() => {
     const instance = renderer;
-    if (!instance || !ready || !width || !height) return;
+    if (!instance || !file.id || !ready || !width || !height) return;
 
     const lineMode = mode[file.id] === MODE.LINE;
     const staffCount = staff[file.id];
@@ -382,7 +401,8 @@
         ], offset);
       }
     } else {
-      coords.forEach(({ x, y }, i) => {
+      blockOrder.forEach((index, i) => {
+        const { x, y } = coords[index];
         const offset = i * 4;
         const rectWidth = xscale.bandwidth();
         const rectHeight = yscale.bandwidth();
@@ -401,14 +421,21 @@
 
   $effect(() => {
     const instance = renderer;
-    if (!instance || !ready) return;
+    if (!instance || !file.id || !ready) return;
 
-    instance.setColors(Float32Array.from(color));
+    instance.setColors(
+      Float32Array.from(color),
+      Float32Array.from(blockOrder, index => color[index])
+    );
     untrack(draw);
   });
 
   const draw = () => {
     if (!renderer) return;
+    if (!file.id) {
+      renderer.clear();
+      return;
+    }
 
     const fixedPlayhead = width * 0.3;
     const measurePlayhead = scroll[file.id]
@@ -437,6 +464,7 @@
 
   $effect(() => {
     colorSchemeVersion;
+    file.id;
     measure.value;
     position;
     scroll[file.id];
