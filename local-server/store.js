@@ -23,7 +23,8 @@ export const current = {
   y: null,
   color: null,
   bpm: null,
-  action: null
+  action: null,
+  state: null
 };
 
 export const ACTIONS = Object.freeze({

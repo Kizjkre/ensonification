@@ -2,6 +2,7 @@
   import bpm from '$lib/state/bpm.svelte.js';
   import colorstate from '$lib/state/color.svelte.js';
   import colorrange from '$lib/state/colorrange.svelte.js';
+  import cutoff from '$lib/state/cutoff.svelte.js';
   import domain from '$lib/state/domain.svelte.js';
   import file from '$lib/state/file.svelte.js';
   import livePoints from '$lib/state/live-points.svelte.js';
@@ -297,6 +298,7 @@
   let t = -1;
   let lastPlayheadProgress = null;
   let lastPlayheadFileId = null;
+  let actionSent = false;
 
   const postDatum = async datum => {
     if (!server.connected) return;
@@ -319,10 +321,32 @@
     }
   };
 
+  const postAction = async () => {
+    if (!server.connected) return;
+
+    try {
+      const response = await fetch('http://localhost:4433/action', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ payload: 'state' })
+      });
+
+      if (!response.ok) {
+        throw new Error(`POST /action failed with status ${response.status}.`);
+      }
+    } catch (error) {
+      console.error('Unable to send score action to the local server:', error);
+    }
+  };
+
   const notifyCrossedPoints = currentProgress => {
     if (lastPlayheadFileId !== file.id) {
       lastPlayheadFileId = file.id;
       lastPlayheadProgress = null;
+      actionSent = false;
     }
 
     if (lastPlayheadProgress === null) {
@@ -347,6 +371,19 @@
       void postDatum(playheadPoints[i].datum);
     }
 
+    if (!actionSent && playheadPoints.length) {
+      const firstProgress = playheadPoints[0].progress;
+      const lastProgress = playheadPoints[playheadPoints.length - 1].progress;
+      const fraction = Number.isFinite(cutoff.value)
+        ? Math.min(1, Math.max(0, cutoff.value))
+        : 0.9;
+
+      if (currentProgress >= firstProgress + (lastProgress - firstProgress) * fraction) {
+        actionSent = true;
+        void postAction();
+      }
+    }
+
     lastPlayheadProgress = currentProgress;
   };
 
@@ -356,6 +393,7 @@
       measure.value = 0;
       position = 0;
       lastPlayheadProgress = null;
+      actionSent = false;
       renderer?.clear();
       return;
     }
@@ -373,6 +411,7 @@
       measure.value = 0;
       position = 0;
       lastPlayheadProgress = null;
+      actionSent = false;
     }
   };
 

@@ -2,11 +2,10 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'node-osc';
 import http from 'node:http';
+import generate from './generate.js';
 import { learn, current, ACTIONS } from './store.js';
 
 const clients = new Set();
-
-let state = null;
 
 // UDP Server
 const UDP = 5005;
@@ -19,7 +18,7 @@ osc.on('message', msg => {
 
   switch (data[0]) {
     case ACTIONS.GENERATE: // NOTE: generation
-      state = data[1];
+      current.state = data[1];
       break;
     case ACTIONS.LEARN: // NOTE: training
       learn(current.x, current.y, current.color, data[1]);
@@ -121,6 +120,12 @@ app.post('/action', (req, res) => {
   // TODO; validation
 
   current.action = data;
+
+  switch (current.action) {
+    case ACTIONS.GENERATE:
+      generate();
+      break;
+  }
 
   res.json({
     success: true,
