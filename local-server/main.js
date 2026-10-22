@@ -4,6 +4,10 @@ import { Server } from 'node-osc';
 import http from 'node:http';
 import generate from './generate.js';
 import { learn, current, ACTIONS } from './store.js';
+import { exec } from 'node:child_process';
+
+// Launch Max/MSP
+exec('open local-server/somax.maxpat'); // todo: make it not hard-coded
 
 const clients = new Set();
 
