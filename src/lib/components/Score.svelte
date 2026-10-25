@@ -7,6 +7,7 @@
   import file from '$lib/state/file.svelte.js';
   import livePoints from '$lib/state/live-points.svelte.js';
   import measure from '$lib/state/measure.svelte.js';
+  import menu from '$lib/state/menu.svelte.js';
   import mode, { MODE } from '$lib/state/mode.svelte.js';
   import range from '$lib/state/range.svelte.js';
   import scale from '$lib/state/scale.svelte.js';
@@ -36,6 +37,7 @@
   let coverOpacity = $state(1);
   let colorSchemeVersion = $state(0);
   let dragging = $state(false);
+  let hoveredDatum = $state(null);
   let dragStartX = 0;
   let dragStartScale = 1;
 
@@ -276,16 +278,90 @@
   };
 
   const handlePointerMove = event => {
-    if (!dragging || !width) return;
+    if (dragging) {
+      if (!width) return;
 
-    scale[file.id] = Math.min(
-      100,
-      Math.max(0.05, dragStartScale * Math.exp((event.clientX - dragStartX) / width))
-    );
+      scale[file.id] = Math.min(
+        100,
+        Math.max(0.05, dragStartScale * Math.exp((event.clientX - dragStartX) / width))
+      );
+      hoveredDatum = null;
+      return;
+    }
+
+    if (!menu.open || !file.id || !ready || !width || !height) {
+      hoveredDatum = null;
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    let datumIndex = -1;
+
+    if (mode[file.id] === MODE.BLOCK) {
+      const rectWidth = xscale.bandwidth();
+      const gap = scroll[file.id] ? padding : 0;
+
+      for (let i = blockOrder.length - 1; i >= 0; i--) {
+        const index = blockOrder[i];
+        const point = coords[index];
+        const rectHeight = yscale.bandwidth();
+        const left = (xscale(point.x) - +(rectWidth < xmin) * xmin / 2) * dataScale + scrollOffset;
+        const top = yscale(point.y) - +(rectHeight < ymin) * ymin / 2;
+        const blockWidth = (rectWidth + gap) * dataScale - gap;
+        const blockHeight = rectHeight < ymin ? ymin : rectHeight;
+
+        if (
+          pointerX >= left && pointerX <= left + blockWidth &&
+          pointerY >= top && pointerY <= top + blockHeight
+        ) {
+          datumIndex = index;
+          break;
+        }
+      }
+    } else if (mode[file.id] === MODE.LINE) {
+      let nearestDistance = 36;
+
+      for (let i = 0; i < coords.length; i++) {
+        const point = coords[i];
+        const dx = pointerX - (xscale(point.x) * dataScale + scrollOffset);
+        const dy = pointerY - yscale(point.y);
+        const distance = dx * dx + dy * dy;
+
+        if (distance <= nearestDistance) {
+          nearestDistance = distance;
+          datumIndex = i;
+        }
+      }
+    }
+
+    if (datumIndex === -1) {
+      hoveredDatum = null;
+      return;
+    }
+
+    const index = validIndices[datumIndex];
+    const row = raw.data[index];
+    const appended = index >= raw.data.length ? appendedPoints[index - raw.data.length] : null;
+    const datum = {
+      x: xstate[file.id] === -1 ? index : row ? row[raw.columns[xstate[file.id]]] : xraw[index],
+      y: row ? row[raw.columns[ystate[file.id]]] : appended?.y,
+      color: row ? row[raw.columns[colorstate[file.id]]] : appended?.color
+    };
+    hoveredDatum = {
+      value: `(${datum.x}, ${datum.y}, ${datum.color})`,
+      left: Math.max(0, Math.min(pointerX + 12, width - 160)),
+      top: Math.max(0, Math.min(pointerY + 12, height - 36))
+    };
   };
 
   const handlePointerUp = () => {
     dragging = false;
+  };
+
+  const handlePointerLeave = () => {
+    hoveredDatum = null;
   };
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -554,13 +630,23 @@
     bind:this={canvas}
     class="block h-full w-full"
     class:cursor-ew-resize={scroll[file.id] && !dragging}
+    class:cursor-crosshair={!scroll[file.id] && hoveredDatum}
     class:cursor-grabbing={dragging}
     onpointerdown={handlePointerDown}
     onpointermove={handlePointerMove}
+    onpointerleave={handlePointerLeave}
     onpointerup={handlePointerUp}
     onpointercancel={handlePointerUp}
     onlostpointercapture={handlePointerUp}
   ></canvas>
+  {#if menu.open && hoveredDatum}
+    <div
+      role="tooltip"
+      class="absolute pointer-events-none z-10 max-w-48 break-all rounded bg-gray-900 px-2 py-1 text-xs text-white shadow"
+      style:left="{hoveredDatum.left}px"
+      style:top="{hoveredDatum.top}px"
+    >{hoveredDatum.value}</div>
+  {/if}
   <div bind:this={backgroundSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-white opacity-0 dark:bg-gray-800"></div>
   <div bind:this={staffColorSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-gray-300 opacity-0 dark:bg-gray-700"></div>
   {#if renderError}

@@ -103,7 +103,7 @@
   <div class="col-span-7 flex gap-4 justify-between">
     <h3 class="dark:text-gray-100 font-normal m-0">score settings.</h3>
     <div class="flex items-center">
-      <span class="text-xs" class:text-red-400={!server.connected} class:text-green-400={server.connected}>local server: {server.connected ? 'on' : 'off'}</span>
+      <span class="text-xs" class:text-red-400={!server.connected} class:text-green-400={server.connected}>local server: {server.connected ? 'on' : 'off'}.</span>
     </div>
     <div bind:this={range} class="relative w-1/2">
       <button
