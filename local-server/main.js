@@ -1,15 +1,13 @@
 import cors from 'cors';
 import express from 'express';
 import { Server } from 'node-osc';
+import { exec } from 'node:child_process';
 import http from 'node:http';
 import generate from './generate.js';
-import { learn, current, ACTIONS } from './store.js';
-import { exec } from 'node:child_process';
+import { ACTIONS, clients, current, learn } from './store.js';
 
 // Launch Max/MSP
 exec('open local-server/somax.maxpat'); // todo: make it not hard-coded
-
-const clients = new Set();
 
 // UDP Server
 const UDP = 5005;
@@ -25,6 +23,7 @@ osc.on('message', msg => {
       current.state = data[1];
       break;
     case ACTIONS.LEARN: // NOTE: training
+      current.state = data[1];
       learn(current.x, current.y, current.color, data[1]);
       break;
   }
@@ -87,15 +86,17 @@ app.use((req, res, next) => {
 
 // POST endpoints
 app.post('/datum', (req, res) => {
-  const data = JSON.parse(req.body);
+  const data = req.body;
 
-  if (!data.x || !data.y || !data.color) {
+  if (!('x' in data) || !('y' in data) || !('color' in data)) {
     return res.status(400).json({ error: 'Invalid data' });
   }
 
   current.x = data.x;
   current.y = data.y;
   current.color = data.color;
+
+  learn(current.x, current.y, current.color, current.state);
 
   res.json({
     success: true,
@@ -122,7 +123,6 @@ app.post('/action', (req, res) => {
   const data = req.body.payload;
 
   // TODO; validation
-
   current.action = data;
 
   switch (current.action) {

@@ -9,7 +9,7 @@ export default () => {
     clients.forEach(client => {
       client.write(`data: ${ JSON.stringify(d) }\n\n`);
     });
-  }, bpm * 60 * 1000);
+  }, bpm / 60 * 1000);
 
   return () => clearInterval(id);
 };

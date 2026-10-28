@@ -19,15 +19,16 @@ export const init = () => {
       }
 
       if (event.data.type === 'data') {
-        const datum = event.data.data;
-        if (!file.id || !datum || datum.y == null || datum.color == null) return;
+        event.data.data.forEach(datum => {
+          if (!file.id || !datum || datum.y == null || datum.color == null) return;
 
-        if (livePoints.fileId !== file.id) {
-          livePoints.fileId = file.id;
-          livePoints.points = [];
-        }
+          if (livePoints.fileId !== file.id) {
+            livePoints.fileId = file.id;
+            livePoints.points = [];
+          }
 
-        livePoints.points = [...livePoints.points, { y: datum.y, color: datum.color }];
+          livePoints.points = [...livePoints.points, { y: datum.y, color: datum.color }];
+        });
       }
     };
   });

@@ -10,6 +10,8 @@ if (!fs.existsSync(DATABASE_PATH)) {
 export const db = JSON.parse(fs.readFileSync(DATABASE_PATH));
 
 export const learn = (x, y, color, state) => {
+  if (x === null || y === null || color === null || state === null) return;
+
   db[state] = db[state] || [];
   db[state].push({ x, y, color });
 
