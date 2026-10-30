@@ -20,11 +20,8 @@ osc.on('message', msg => {
 
   switch (data[0]) {
     case ACTIONS.GENERATE: // NOTE: generation
-      current.state = data[1];
-      break;
     case ACTIONS.LEARN: // NOTE: training
       current.state = data[1];
-      learn(current.x, current.y, current.color, data[1]);
       break;
   }
 });
@@ -88,15 +85,9 @@ app.use((req, res, next) => {
 app.post('/datum', (req, res) => {
   const data = req.body;
 
-  if (!('x' in data) || !('y' in data) || !('color' in data)) {
-    return res.status(400).json({ error: 'Invalid data' });
-  }
-
-  current.x = data.x;
-  current.y = data.y;
-  current.color = data.color;
-
-  learn(current.x, current.y, current.color, current.state);
+  data.forEach(datum => {
+    learn(datum.x, datum.y, datum.color, current.state);
+  });
 
   res.json({
     success: true,

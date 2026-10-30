@@ -27,7 +27,7 @@ export const init = () => {
             livePoints.points = [];
           }
 
-          livePoints.points = [...livePoints.points, { y: datum.y, color: datum.color }];
+          livePoints.points = [...livePoints.points, { x: datum.x, y: datum.y, color: datum.color }];
         });
       }
     };

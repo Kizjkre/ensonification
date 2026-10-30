@@ -81,14 +81,23 @@
     if (!appendedPoints.length) return baseXraw;
 
     const lastX = baseXraw.reduce((maximum, value) =>
-      Number.isFinite(value) ? Math.max(maximum, value) : maximum, -1);
-    return [...baseXraw, ...appendedPoints.map((_, i) => lastX + i + 1)];
+      value != null && value !== '' && Number.isFinite(Number(value))
+        ? Math.max(maximum, Number(value))
+        : maximum, -1);
+    return [...baseXraw, ...appendedPoints.map(point => {
+      const offset = point.x == null || point.x === '' ? NaN : Number(point.x);
+      return Number.isFinite(offset) ? lastX + offset : NaN;
+    })];
   });
   const yraw = $derived(ytransform.out);
   const colorraw = $derived(colortransform.out);
 
-  $effect(() => { range.values = ytransform.map });
-  $effect(() => { domain.values = colortransform.map });
+  $effect(() => {
+    range.values = ytransform.map;
+  });
+  $effect(() => {
+    domain.values = colortransform.map;
+  });
 
   const nulls = $derived(
     new Set(
@@ -155,15 +164,10 @@
   const selectedColorRange = $derived(colorrange[file.id] || { min: 0, max: 1 });
   const dataScale = $derived(scroll[file.id] && Number.isFinite(scale[file.id]) && scale[file.id] > 0 ? scale[file.id] : 1);
   const scrollCoordinate = progress => {
-    const xValue = xdomain[0] + progress - 2;
-    const mapped = xscale(xValue);
-    if (Number.isFinite(mapped)) return mapped;
-
-    const firstX = xdomain[0];
-    const firstMapped = xscale(firstX);
+    const firstMapped = xscale(xdomain[0]);
     return Number.isFinite(firstMapped)
-      ? firstMapped + (xValue - firstX) * bandwidth
-      : progress * bandwidth;
+      ? firstMapped + (progress - 2) * bandwidth
+      : (progress - 2) * bandwidth;
   };
   const scrollOffset = $derived(scroll[file.id]
     ? width * 0.3 + padding / 2 - scrollCoordinate(measure.value + position) * dataScale
@@ -350,7 +354,7 @@
       color: row ? row[raw.columns[colorstate[file.id]]] : appended?.color
     };
     hoveredDatum = {
-      value: `(${datum.x}, ${datum.y}, ${datum.color})`,
+      value: `(${ datum.x }, ${ datum.y }, ${ datum.color })`,
       left: Math.max(0, Math.min(pointerX + 12, width - 160)),
       top: Math.max(0, Math.min(pointerY + 12, height - 36))
     };
@@ -390,7 +394,7 @@
       });
 
       if (!response.ok) {
-        throw new Error(`POST /datum failed with status ${response.status}.`);
+        throw new Error(`POST /datum failed with status ${ response.status }.`);
       }
     } catch (error) {
       console.error('Unable to send score datum to the local server:', error);
@@ -411,7 +415,7 @@
       });
 
       if (!response.ok) {
-        throw new Error(`POST /action failed with status ${response.status}.`);
+        throw new Error(`POST /action failed with status ${ response.status }.`);
       }
     } catch (error) {
       console.error('Unable to send score action to the local server:', error);
@@ -443,8 +447,12 @@
       else high = middle;
     }
 
-    for (let i = low; i < playheadPoints.length && playheadPoints[i].progress <= currentProgress; i++) {
-      void postDatum(playheadPoints[i].datum);
+    if (!actionSent) {
+      const dataPost = [];
+      for (let i = low; i < playheadPoints.length && playheadPoints[i].progress <= currentProgress; i++) {
+        dataPost.push(playheadPoints[i].datum);
+      }
+      dataPost.length && postDatum(dataPost);
     }
 
     if (!actionSent && playheadPoints.length) {
@@ -647,10 +655,13 @@
       style:top="{hoveredDatum.top}px"
     >{hoveredDatum.value}</div>
   {/if}
-  <div bind:this={backgroundSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-white opacity-0 dark:bg-gray-800"></div>
-  <div bind:this={staffColorSample} aria-hidden="true" class="pointer-events-none absolute h-px w-px bg-gray-300 opacity-0 dark:bg-gray-700"></div>
+  <div bind:this={backgroundSample} aria-hidden="true"
+       class="pointer-events-none absolute h-px w-px bg-white opacity-0 dark:bg-gray-800"></div>
+  <div bind:this={staffColorSample} aria-hidden="true"
+       class="pointer-events-none absolute h-px w-px bg-gray-300 opacity-0 dark:bg-gray-700"></div>
   {#if renderError}
-    <div role="alert" class="absolute inset-0 grid place-items-center bg-white p-4 text-center text-red-600 dark:bg-gray-800">
+    <div role="alert"
+         class="absolute inset-0 grid place-items-center bg-white p-4 text-center text-red-600 dark:bg-gray-800">
       Unable to render the score: {renderError}
     </div>
   {/if}

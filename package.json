@@ -1,13 +1,14 @@
 {
   "name": "ensonification",
   "private": true,
-  "version": "0.2.4 (1)",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "dev:host": "vite dev --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "local": "node local-server/main.js"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",

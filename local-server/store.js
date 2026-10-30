@@ -21,9 +21,6 @@ export const learn = (x, y, color, state) => {
 export const clients = new Set();
 
 export const current = {
-  x: null,
-  y: null,
-  color: null,
   bpm: null,
   action: null,
   state: null
