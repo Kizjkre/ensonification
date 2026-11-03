@@ -28,8 +28,7 @@ osc.on('message', msg => {
 
 const PORT = 4433;
 const ORIGINS = new Set([
-  'https://ccrma.stanford.edu/~pengt/ensonification/',       // Production
-  'https://ccrma.stanford.edu/~pengt/sonification-ensemble',
+  'https://ccrma.stanford.edu',       // Production
   'http://localhost:5173',                  // Development
   'https://localhost:5173',                 // Development (HTTPS)
   'http://127.0.0.1:5173',
@@ -39,47 +38,19 @@ const ORIGINS = new Set([
 const app = express();
 const server = http.createServer(app);
 
-app.use((req, res, next) => {
-  if (!ORIGINS.has(req.headers.origin)) {
-    return res.status(403).end('Forbidden');
-  }
-  next();
-});
-
 app.use(cors({
   origin(origin, callback) {
-    // Reject unapproved origins. Requests without an Origin
-    // header are allowed through CORS middleware, but should
-    // still be authenticated if they access sensitive operations.
-    if (!origin || ORIGINS.has(origin)) {
-      callback(null, origin || false);
+    if (origin && ORIGINS.has(origin)) {
+      callback(null, origin);
     } else {
       callback(new Error('Origin not allowed'));
     }
   },
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  preflightContinue: true
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Parse JSON request bodies
 app.use(express.json({ limit: '1mb' }));
-
-// Add Private Network Access header to preflight responses
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.origin;
-
-    if (ORIGINS.has(origin)) {
-      res.setHeader(
-        'Access-Control-Allow-Private-Network',
-        'true'
-      );
-    }
-  }
-
-  next();
-});
 
 // POST endpoints
 app.post('/datum', (req, res) => {
@@ -111,10 +82,8 @@ app.post('/bpm', (req, res) => {
 });
 
 app.post('/action', (req, res) => {
-  const data = req.body.payload;
-
   // TODO; validation
-  current.action = data;
+  current.action = req.body.payload;
 
   switch (current.action) {
     case ACTIONS.GENERATE:

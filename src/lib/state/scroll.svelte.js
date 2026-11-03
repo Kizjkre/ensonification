@@ -3,7 +3,7 @@ import save from '$lib/util/save.svelte.js';
 
 const scroll = $state({});
 
-defaults(scroll, true);
+defaults(scroll, false);
 save('scroll', scroll);
 
 export default scroll;

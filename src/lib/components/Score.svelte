@@ -17,8 +17,13 @@
   import status from '$lib/state/status.svelte.js';
   import xstate from '$lib/state/x.svelte.js';
   import ystate from '$lib/state/y.svelte.js';
-  import atoi from '$lib/util/atoi.js';
-  import createScoreRenderer from '$lib/util/score-renderer.js';
+  import { colorComponents, createPalette } from '$lib/util/score/color.js';
+  import { buildPlayheadPoints, filterScoreData, prepareScoreValues } from '$lib/util/score/data.js';
+  import { createPlayheadGeometry, createScoreColors, createScoreGeometry } from '$lib/util/score/geometry.js';
+  import { getHoveredDatum } from '$lib/util/score/interaction.js';
+  import { createPlayheadNotifier } from '$lib/util/score/playback.js';
+  import { createXLayout, createYScale, getScrollCoordinate } from '$lib/util/score/scales.js';
+  import createScoreRenderer from '$lib/util/score/renderer.js';
   import * as d3 from 'd3';
   import { onMount, untrack } from 'svelte';
 
@@ -63,152 +68,68 @@
   });
 
   const appendedPoints = $derived(livePoints.fileId === file.id ? livePoints.points : []);
-  const yvalues = $derived([
-    ...(raw?.data.map(d => d[raw.columns[ystate[file.id]]]) || []),
-    ...appendedPoints.map(d => d.y)
-  ]);
-  const colorvalues = $derived([
-    ...(raw?.data.map(d => d[raw.columns[colorstate[file.id]]]) || []),
-    ...appendedPoints.map(d => d.color)
-  ]);
-  const ytransform = $derived(atoi(yvalues));
-  const colortransform = $derived(atoi(colorvalues));
-
-  const baseXraw = $derived(xstate[file.id] !== -1
-    ? atoi(raw?.data.map(d => d[raw.columns[xstate[file.id]]]) || []).out
-    : raw.data.map((_, i) => i));
-  const xraw = $derived.by(() => {
-    if (!appendedPoints.length) return baseXraw;
-
-    const lastX = baseXraw.reduce((maximum, value) =>
-      value != null && value !== '' && Number.isFinite(Number(value))
-        ? Math.max(maximum, Number(value))
-        : maximum, -1);
-    return [...baseXraw, ...appendedPoints.map(point => {
-      const offset = point.x == null || point.x === '' ? NaN : Number(point.x);
-      return Number.isFinite(offset) ? lastX + offset : NaN;
-    })];
-  });
-  const yraw = $derived(ytransform.out);
-  const colorraw = $derived(colortransform.out);
+  const values = $derived.by(() => prepareScoreValues({
+    raw,
+    appendedPoints,
+    xColumn: xstate[file.id],
+    yColumn: ystate[file.id],
+    colorColumn: colorstate[file.id]
+  }));
+  const xraw = $derived(values.x);
+  const yraw = $derived(values.y);
+  const colorraw = $derived(values.color);
 
   $effect(() => {
-    range.values = ytransform.map;
+    range.values = values.yMap;
   });
   $effect(() => {
-    domain.values = colortransform.map;
+    domain.values = values.colorMap;
   });
 
-  const nulls = $derived(
-    new Set(
-      Array(Math.min(xraw?.length, yraw?.length, colorraw?.length))
-        .fill()
-        .map((_, i) => i)
-        .filter((_, i) => isNaN(xraw[i]) || isNaN(yraw[i]) || isNaN(colorraw[i]) || xraw[i] === null || yraw[i] === null || colorraw[i] === null)
-    )
-  );
+  const filtered = $derived.by(() => filterScoreData(xraw, yraw, colorraw, raw.data.length));
+  const validIndices = $derived(filtered.validIndices);
+  const baseXCount = $derived(filtered.baseXCount);
+  const x = $derived(filtered.x);
+  const y = $derived(filtered.y);
+  const color = $derived(filtered.color);
+  const coords = $derived(filtered.coords);
 
-  const validIndices = $derived(
-    Array.from({ length: Math.min(xraw?.length, yraw?.length, colorraw?.length) }, (_, i) => i)
-      .filter(i => !nulls.has(i))
-  );
-  const baseXCount = $derived(new Set(
-    validIndices
-      .filter(i => i < raw.data.length)
-      .map(i => xraw[i])
-  ).size);
-  const x = $derived(xraw.filter((_, i) => !nulls.has(i)));
-  const y = $derived(yraw.filter((_, i) => !nulls.has(i)));
-  const color = $derived(colorraw.filter((_, i) => !nulls.has(i)));
-  const coords = $derived(x.map((d, i) => ({ x: d, y: y[i] })));
-
-  const xdomain = $derived([...new Set(x)]);
-  const xpad = $derived(0.1 / 50 * ((scroll[file.id] ? baseXCount : xdomain.length) + 2));
-  const xscale = $derived.by(() => {
-    xdomain.sort((a, b) => a - b);
-
-    return d3.scaleBand()
-      .domain([xdomain[0] - 2, xdomain[0] - 1, ...xdomain])
-      .range([0, scroll[file.id]
-        ? width * (xdomain.length + 2) / (baseXCount + 2)
-        : width])
-      .padding(xpad);
-  });
-  const blockOrder = $derived.by(() =>
-    coords.map((_, i) => i).sort((a, b) => xscale(coords[a].x) - xscale(coords[b].x))
-  );
+  const xLayout = $derived.by(() => createXLayout({
+    x, coords, width, baseXCount, scrollEnabled: scroll[file.id]
+  }));
+  const xdomain = $derived(xLayout.xdomain);
+  const xscale = $derived(xLayout.xscale);
+  const blockOrder = $derived(xLayout.blockOrder);
+  const bandwidth = $derived(xLayout.bandwidth);
+  const padding = $derived(xLayout.padding);
   const xmin = 5;
-  const bandwidth = $derived(xscale.bandwidth() === 0 ? width / (xdomain.length + 2) : xscale.bandwidth() / (1 - xpad));
-  const padding = $derived.by(() => {
-    const padding = xpad * bandwidth;
-    return padding < 1 ? 1 : padding;
-  });
-
-  const ypad = 0.01;
-  const yscale = $derived.by(() => {
-    switch (mode[file.id]) {
-      case MODE.BLOCK:
-        return d3.scaleBand()
-          .domain([...new Set(y)].sort((a, b) => a - b))
-          .range([height, 0])
-          .padding(ypad);
-      case MODE.LINE:
-        return d3.scaleLinear()
-          .domain(d3.extent(y))
-          .range([height - 10 - ypad * 2, ypad * 2]);
-    }
-  });
+  const yscale = $derived(createYScale({ mode: mode[file.id], y, height, blockMode: MODE.BLOCK, lineMode: MODE.LINE }));
   const ymin = 2;
 
   const colordomain = $derived(d3.extent(color || []));
   const selectedColorRange = $derived(colorrange[file.id] || { min: 0, max: 1 });
   const dataScale = $derived(scroll[file.id] && Number.isFinite(scale[file.id]) && scale[file.id] > 0 ? scale[file.id] : 1);
-  const scrollCoordinate = progress => {
-    const firstMapped = xscale(xdomain[0]);
-    return Number.isFinite(firstMapped)
-      ? firstMapped + (progress - 2) * bandwidth
-      : (progress - 2) * bandwidth;
-  };
   const scrollOffset = $derived(scroll[file.id]
-    ? width * 0.3 + padding / 2 - scrollCoordinate(measure.value + position) * dataScale
+    ? width * 0.3 + padding / 2 - getScrollCoordinate(measure.value + position, xscale, xdomain, bandwidth) * dataScale
     : 0);
   const playheadPoints = $derived.by(() => {
-    if (!bandwidth) return [];
-
-    const xColumn = xstate[file.id];
-    const yColumn = ystate[file.id];
-    const colorColumn = colorstate[file.id];
-
-    return coords.map((point, i) => {
-      const index = validIndices[i];
-      const row = raw.data[index];
-      const appended = index >= raw.data.length ? appendedPoints[index - raw.data.length] : null;
-      return {
-        progress: xscale(point.x) / bandwidth,
-        datum: {
-          x: xColumn === -1 ? index : row ? row[raw.columns[xColumn]] : xraw[index],
-          y: row ? row[raw.columns[yColumn]] : appended?.y,
-          color: row ? row[raw.columns[colorColumn]] : appended?.color
-        }
-      };
-    }).filter(point => Number.isFinite(point.progress))
-      .sort((a, b) => a.progress - b.progress);
+    return buildPlayheadPoints({
+      coords,
+      validIndices,
+      raw,
+      appendedPoints,
+      xColumn: xstate[file.id],
+      yColumn: ystate[file.id],
+      colorColumn: colorstate[file.id],
+      xValues: xraw,
+      xscale,
+      bandwidth
+    });
   });
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  const colorComponents = value => {
-    const parsed = d3.color(value);
-    return parsed
-      ? [parsed.r / 255, parsed.g / 255, parsed.b / 255, parsed.opacity]
-      : [0, 0, 0, 0];
-  };
-
-  const palette = new Uint8Array(256 * 4);
-  for (let i = 0; i < 256; i++) {
-    const color = d3.color(d3.interpolateTurbo(i / 255));
-    palette.set([color.r, color.g, color.b, 255], i * 4);
-  }
+  const palette = createPalette();
 
   const handleResize = () => {
     if (!container) return;
@@ -298,66 +219,33 @@
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    let datumIndex = -1;
-
-    if (mode[file.id] === MODE.BLOCK) {
-      const rectWidth = xscale.bandwidth();
-      const gap = scroll[file.id] ? padding : 0;
-
-      for (let i = blockOrder.length - 1; i >= 0; i--) {
-        const index = blockOrder[i];
-        const point = coords[index];
-        const rectHeight = yscale.bandwidth();
-        const left = (xscale(point.x) - +(rectWidth < xmin) * xmin / 2) * dataScale + scrollOffset;
-        const top = yscale(point.y) - +(rectHeight < ymin) * ymin / 2;
-        const blockWidth = (rectWidth + gap) * dataScale - gap;
-        const blockHeight = rectHeight < ymin ? ymin : rectHeight;
-
-        if (
-          pointerX >= left && pointerX <= left + blockWidth &&
-          pointerY >= top && pointerY <= top + blockHeight
-        ) {
-          datumIndex = index;
-          break;
-        }
-      }
-    } else if (mode[file.id] === MODE.LINE) {
-      let nearestDistance = 36;
-
-      for (let i = 0; i < coords.length; i++) {
-        const point = coords[i];
-        const dx = pointerX - (xscale(point.x) * dataScale + scrollOffset);
-        const dy = pointerY - yscale(point.y);
-        const distance = dx * dx + dy * dy;
-
-        if (distance <= nearestDistance) {
-          nearestDistance = distance;
-          datumIndex = i;
-        }
-      }
-    }
-
-    if (datumIndex === -1) {
-      hoveredDatum = null;
-      return;
-    }
-
-    const index = validIndices[datumIndex];
-    const row = raw.data[index];
-    const appended = index >= raw.data.length ? appendedPoints[index - raw.data.length] : null;
-    const datum = {
-      x: xstate[file.id] === -1 ? index : row ? row[raw.columns[xstate[file.id]]] : xraw[index],
-      y: row ? row[raw.columns[ystate[file.id]]] : appended?.y,
-      color: row ? row[raw.columns[colorstate[file.id]]] : appended?.color
-    };
-    hoveredDatum = {
-      value: `(${ datum.x }, ${ datum.y }, ${ datum.color })`,
-      left: Math.max(0, Math.min(pointerX + 12, width - 160)),
-      top: Math.max(0, Math.min(pointerY + 12, height - 36))
-    };
+    hoveredDatum = getHoveredDatum({
+      event,
+      canvas,
+      enabled: menu.open && Boolean(file.id) && ready,
+      width,
+      height,
+      mode: mode[file.id],
+      blockMode: MODE.BLOCK,
+      lineMode: MODE.LINE,
+      coords,
+      blockOrder,
+      xscale,
+      yscale,
+      dataScale,
+      scrollOffset,
+      padding,
+      scrollEnabled: scroll[file.id],
+      xmin,
+      ymin,
+      validIndices,
+      raw,
+      appendedPoints,
+      xColumn: xstate[file.id],
+      yColumn: ystate[file.id],
+      colorColumn: colorstate[file.id],
+      xValues: xraw
+    });
   };
 
   const handlePointerUp = () => {
@@ -376,108 +264,14 @@
   const TRANSITION_DURATION = 0;
 
   let t = -1;
-  let lastPlayheadProgress = null;
-  let lastPlayheadFileId = null;
-  let actionSent = false;
-
-  const postDatum = async datum => {
-    if (!server.connected) return;
-
-    try {
-      const response = await fetch('http://localhost:4433/datum', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(datum)
-      });
-
-      if (!response.ok) {
-        throw new Error(`POST /datum failed with status ${ response.status }.`);
-      }
-    } catch (error) {
-      console.error('Unable to send score datum to the local server:', error);
-    }
-  };
-
-  const postAction = async () => {
-    if (!server.connected) return;
-
-    try {
-      const response = await fetch('http://localhost:4433/action', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ payload: 'state' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`POST /action failed with status ${ response.status }.`);
-      }
-    } catch (error) {
-      console.error('Unable to send score action to the local server:', error);
-    }
-  };
-
-  const notifyCrossedPoints = currentProgress => {
-    if (lastPlayheadFileId !== file.id) {
-      lastPlayheadFileId = file.id;
-      lastPlayheadProgress = null;
-      actionSent = false;
-    }
-
-    if (lastPlayheadProgress === null) {
-      const epsilon = Math.max(1, Math.abs(currentProgress)) * Number.EPSILON * 4;
-      lastPlayheadProgress = currentProgress - epsilon;
-    }
-
-    if (currentProgress < lastPlayheadProgress) {
-      lastPlayheadProgress = currentProgress;
-      return;
-    }
-
-    let low = 0;
-    let high = playheadPoints.length;
-    while (low < high) {
-      const middle = (low + high) >>> 1;
-      if (playheadPoints[middle].progress <= lastPlayheadProgress) low = middle + 1;
-      else high = middle;
-    }
-
-    if (!actionSent) {
-      const dataPost = [];
-      for (let i = low; i < playheadPoints.length && playheadPoints[i].progress <= currentProgress; i++) {
-        dataPost.push(playheadPoints[i].datum);
-      }
-      dataPost.length && postDatum(dataPost);
-    }
-
-    if (!actionSent && playheadPoints.length) {
-      const firstProgress = playheadPoints[0].progress;
-      const lastProgress = playheadPoints[playheadPoints.length - 1].progress;
-      const fraction = Number.isFinite(cutoff.value)
-        ? Math.min(1, Math.max(0, cutoff.value))
-        : 0.9;
-
-      if (currentProgress >= firstProgress + (lastProgress - firstProgress) * fraction) {
-        actionSent = true;
-        void postAction();
-      }
-    }
-
-    lastPlayheadProgress = currentProgress;
-  };
+  const playheadNotifier = createPlayheadNotifier(() => server.connected);
 
   const start = () => {
     if (!file.id) {
       t = -1;
       measure.value = 0;
       position = 0;
-      lastPlayheadProgress = null;
-      actionSent = false;
+      playheadNotifier.reset();
       renderer?.clear();
       return;
     }
@@ -486,16 +280,15 @@
     audio.ctx.currentTime - t > 60 / bpm[file.id] - TRANSITION_DURATION / 1000 && (t += 60 / bpm[file.id]) && measure.value++;
     position = ((audio.ctx.currentTime - t) * bpm[file.id] / 60) % 1;
     const progress = scroll[file.id]
-      ? scrollCoordinate(measure.value + position) / bandwidth
+      ? getScrollCoordinate(measure.value + position, xscale, xdomain, bandwidth) / bandwidth
       : measure.value + position;
-    notifyCrossedPoints(progress);
+    playheadNotifier.notify(file.id, progress, playheadPoints, cutoff.value, appendedPoints.length);
     status.playing && requestAnimationFrame(start);
     if (!status.playing) {
       t = -1;
       measure.value = 0;
       position = 0;
-      lastPlayheadProgress = null;
-      actionSent = false;
+      playheadNotifier.reset();
     }
   };
 
@@ -529,42 +322,18 @@
     const instance = renderer;
     if (!instance || !file.id || !ready || !width || !height) return;
 
-    const lineMode = mode[file.id] === MODE.LINE;
-    const staffCount = staff[file.id];
-    const staffRects = new Float32Array(Math.max(0, staffCount - 1) * 4);
-    const rectangles = new Float32Array(lineMode ? 0 : coords.length * 4);
-    const lines = new Float32Array(lineMode ? coords.length * 4 : 0);
-
-    for (let i = 1; i < staffCount; i++) {
-      const offset = (i - 1) * 4;
-      staffRects.set([0, height / staffCount * i - 2.5, width, 5], offset);
-    }
-
-    if (lineMode) {
-      for (let i = 0; i < coords.length; i++) {
-        const current = coords[i];
-        const next = coords[i + 1] || current;
-        const offset = i * 4;
-        lines.set([
-          xscale(current.x), yscale(current.y),
-          xscale(next.x), yscale(next.y)
-        ], offset);
-      }
-    } else {
-      blockOrder.forEach((index, i) => {
-        const { x, y } = coords[index];
-        const offset = i * 4;
-        const rectWidth = xscale.bandwidth();
-        const rectHeight = yscale.bandwidth();
-        rectangles.set([
-          xscale(x) - +(rectWidth < xmin) * xmin / 2,
-          yscale(y) - +(rectHeight < ymin) * ymin / 2,
-          rectWidth < xmin ? xmin : rectWidth,
-          rectHeight < ymin ? ymin : rectHeight
-        ], offset);
-      });
-    }
-
+    const { staffRects, rectangles, lines } = createScoreGeometry({
+      lineMode: mode[file.id] === MODE.LINE,
+      staffCount: staff[file.id],
+      height,
+      width,
+      coords,
+      blockOrder,
+      xscale,
+      yscale,
+      xmin,
+      ymin
+    });
     instance.setGeometry(staffRects, rectangles, lines);
     untrack(draw);
   });
@@ -573,16 +342,8 @@
     const instance = renderer;
     if (!instance || !file.id || !ready) return;
 
-    const lineColors = new Float32Array(color.length * 2);
-    for (let i = 0; i < color.length; i++) {
-      lineColors[i * 2] = color[i];
-      lineColors[i * 2 + 1] = color[i + 1] ?? color[i];
-    }
-
-    instance.setColors(
-      lineColors,
-      Float32Array.from(blockOrder, index => color[index])
-    );
+    const { lineColors, blockColors } = createScoreColors(color, blockOrder);
+    instance.setColors(lineColors, blockColors);
     untrack(draw);
   });
 
@@ -593,17 +354,16 @@
       return;
     }
 
-    const fixedPlayhead = width * 0.3;
-    const measurePlayhead = scroll[file.id]
-      ? fixedPlayhead - padding / 2 - position * bandwidth * dataScale
-      : measure.value * bandwidth;
-    const positionPlayhead = scroll[file.id]
-      ? fixedPlayhead - padding / 2
-      : (measure.value + position) * bandwidth;
-    const playheads = new Float32Array([
-      measurePlayhead, 0, padding, height,
-      positionPlayhead, 0, padding, height
-    ]);
+    const playheads = createPlayheadGeometry({
+      scrollEnabled: scroll[file.id],
+      width,
+      height,
+      padding,
+      position,
+      bandwidth,
+      dataScale,
+      measure: measure.value
+    });
 
     renderer.draw({
       coverColor: backgroundColor,
